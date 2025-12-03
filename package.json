@@ -1,0 +1,35 @@
+{
+  "name": "agent-sdk",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "format": "dprint fmt",
+    "lint": "oxlint --fix",
+    "lint-staged": "lint-staged",
+    "type-check": "tsc",
+    "ci": "npm ci && npm run lint && npm run build && npm run type-check"
+  },
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx,json,css,md}": [
+      "dprint fmt"
+    ],
+    "*.{js,ts,jsx,tsx}": [
+      "oxlint --fix"
+    ]
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@commitlint/cli": "^20.1.0",
+    "@commitlint/config-conventional": "^20.0.0",
+    "@commitlint/types": "^20.0.0",
+    "dprint": "^0.50.2",
+    "lint-staged": "^16.2.7",
+    "oxlint": "^1.31.0",
+    "typescript": "^5.9.3"
+  }
+}
