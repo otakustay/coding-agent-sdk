@@ -1,0 +1,28 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+## NodeJS模块
+
+对于NodeJS模块的引入，遵守以下要求：
+
+- 模块名有`node:`前缀，如`node:fs`。
+- 优先使用默认导入，如`import fs from 'node:fs/promises'`，注意，`existsSync`除外。
+- 对于有Promise版本的，优先使用。
+
+一个典型的NodeJS模块的使用代码：
+
+```ts
+import fs from 'node:fs/promises';
+import {existsSync} from 'node:fs';
+
+if (existsSync(file)) {
+    const content = await fs.readFile(file, 'utf8');
+    await fs.writeFile(content + '\n');
+}
+```
+
+## 命名规则
+
+- 命名中尽量不要出现连续的大写，对于缩写导致的连续大写，如`IPC`，写成`Ipc`这样的格式。
