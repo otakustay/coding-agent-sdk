@@ -10,8 +10,7 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "declaration": false,
-    "exactOptionalPropertyTypes": true
+    "declaration": false
   },
   "include": ["src", "*.ts"]
 }
