@@ -1,9 +1,34 @@
-import ora from 'ora';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import ora from 'ora';
+import yargs from 'yargs';
+import {hideBin} from 'yargs/helpers';
 import {startAgentTask, AssistantMessageBuilder} from './llm/index.js';
 import type {ChatChunk} from './llm/index.js';
 import type {EvaluateResult} from './tools/evaluate/interface.js';
+
+const argv = await yargs(hideBin(process.argv))
+    .option(
+        'query',
+        {
+            alias: 'q',
+            type: 'string',
+            description: 'Query text for the agent',
+            demandOption: true,
+        }
+    )
+    .option(
+        'model',
+        {
+            alias: 'm',
+            type: 'string',
+            description: 'Model name to use',
+            default: 'anthropic/claude-sonnet-4.5',
+        }
+    )
+    .help()
+    .alias('help', 'h')
+    .parse();
 
 class AgentStateTracker {
     private messageBuilder: AssistantMessageBuilder;
@@ -131,17 +156,15 @@ function formatEvaluateResultToMarkdown(result: EvaluateResult): string {
     return lines.join('\n');
 }
 
-// Initialize store directory
 const storeId = Date.now().toString();
 const storeDirectory = path.join('./data', storeId);
 await fs.mkdir(storeDirectory, {recursive: true});
 
-// Show store directory with spinner
 const storeSpinner = ora(`store: ${storeDirectory}`).start();
 storeSpinner.succeed();
 
 const tracker = new AgentStateTracker();
-for await (const chunk of startAgentTask('分析一下我项目依赖的三方包，按名称+版本列给我，再判断一下这项目干啥的')) {
+for await (const chunk of startAgentTask({query: argv.query, model: argv.model})) {
     tracker.consume(chunk);
 
     switch (chunk.type) {
@@ -183,7 +206,6 @@ for await (const chunk of startAgentTask('分析一下我项目依赖的三方�
             const markdownContent = formatEvaluateResultToMarkdown(evaluateResult);
             const outputFilename = `${args.name}-out.md`;
 
-            // Save result to store
             await fs.writeFile(
                 path.join(storeDirectory, outputFilename),
                 markdownContent,

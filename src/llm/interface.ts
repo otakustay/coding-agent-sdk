@@ -55,3 +55,8 @@ export type ToolChunk = ChatToolCallStartChunk | ChatToolCallChunk | ChatToolCal
 export type ChatOutputChunk = ChatTextChunk | ToolChunk | ChatDoneChunk;
 
 export type ChatChunk = ChatOutputChunk | ChatToolResultChunk;
+
+export interface StartAgentTaskOptions {
+    query: string;
+    model: string;
+}

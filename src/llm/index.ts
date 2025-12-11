@@ -1,4 +1,4 @@
-import type {ChatChunk, ChatOutputChunk} from './interface.js';
+import type {ChatChunk, ChatOutputChunk, StartAgentTaskOptions} from './interface.js';
 import {streamingChat} from './openRouter.js';
 import {renderSystemPrompt} from './prompt.js';
 import {evaluateToolDescription} from './tools.js';
@@ -9,6 +9,7 @@ import type {Message} from '@openrouter/sdk/models';
 export {AssistantMessageBuilder} from './builder.js';
 export type {
     StreamingChatOptions,
+    StartAgentTaskOptions,
     ToolCallData,
     ToolCallDelta,
     ChatTextChunk,
@@ -21,14 +22,15 @@ export type {
 
 const toolImplements: Record<string, ((args: any) => unknown) | undefined> = {evaluate};
 
-async function* runModel(messages: Message[]): AsyncGenerator<ChatOutputChunk> {
+async function* runModel(messages: Message[], model: string): AsyncGenerator<ChatOutputChunk> {
     const tools = [evaluateToolDescription];
-    const stream = streamingChat({model: 'anthropic/claude-sonnet-4.5', messages, tools});
+    const stream = streamingChat({model, messages, tools});
 
     yield* stream;
 }
 
-export async function* startAgentTask(query: string): AsyncGenerator<ChatChunk> {
+export async function* startAgentTask(options: StartAgentTaskOptions): AsyncGenerator<ChatChunk> {
+    const {query, model} = options;
     const messages: Message[] = [
         {
             role: 'system',
@@ -43,7 +45,7 @@ export async function* startAgentTask(query: string): AsyncGenerator<ChatChunk> 
     while (true) {
         const builder = new AssistantMessageBuilder();
 
-        for await (const chunk of runModel(messages)) {
+        for await (const chunk of runModel(messages, model)) {
             builder.consume(chunk);
             yield chunk;
         }
