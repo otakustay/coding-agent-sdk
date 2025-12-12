@@ -21,11 +21,11 @@ export async function evaluate(input: EvaluateInput): Promise<EvaluateResult> {
         return result;
     }
     catch (ex) {
-        return {error: stringifyError(ex)};
+        return {error: stringifyError(ex), actions: []};
     }
     finally {
         sandbox.cleanup(input.name).catch(() => {});
     }
 }
 
-export type {EvaluateInput, EvaluateResult} from './interface.js';
+export type {EvaluateInput, EvaluateResult, ActionMessage} from './interface.js';

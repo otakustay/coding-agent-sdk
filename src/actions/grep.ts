@@ -1,5 +1,7 @@
 import {execa} from 'execa';
 import unixify from 'unixify';
+import crypto from 'node:crypto';
+import type {ActionStartMessage, ActionEndMessage, GrepMessageArgs} from './interface.js';
 
 /**
  * A grep result entry containing matched file information and content
@@ -144,26 +146,60 @@ function resultToEntry(result: GrepResult): GrepEntry | [] {
  * @returns Promise that resolves to array of grep entries
  */
 export async function grep({cwd = process.cwd(), glob, regex}: GrepInput): Promise<GrepEntry[]> {
-    const binaryName = process.platform.startsWith('win') ? 'rg.exe' : 'rg';
-    const commandLineArgs = [
-        '-e',
-        regex,
-        '--context',
-        '1',
-        '--json',
-        '.',
-    ];
+    const uuid = crypto.randomUUID();
 
-    if (glob) {
-        commandLineArgs.push('--glob', glob);
+    const startMessage: ActionStartMessage<GrepMessageArgs> = {
+        type: 'actionStart',
+        uuid,
+        name: 'grep',
+        args: {
+            cwd,
+            glob,
+            regex,
+        },
+    };
+    process.send?.(startMessage);
+
+    try {
+        const binaryName = process.platform.startsWith('win') ? 'rg.exe' : 'rg';
+        const commandLineArgs = [
+            '-e',
+            regex,
+            '--context',
+            '1',
+            '--json',
+            '.',
+        ];
+
+        if (glob) {
+            commandLineArgs.push('--glob', glob);
+        }
+
+        const result = await execa(binaryName, commandLineArgs, {
+            cwd,
+            reject: false,
+        });
+
+        const grepResults = parseRipGrepOutput(result.stdout);
+        const entries = grepResults.flatMap(resultToEntry);
+
+        const endMessage: ActionEndMessage = {
+            type: 'actionEnd',
+            uuid,
+            result: 'success',
+        };
+        process.send?.(endMessage);
+
+        return entries;
     }
+    catch (ex) {
+        const endMessage: ActionEndMessage = {
+            type: 'actionEnd',
+            uuid,
+            result: 'error',
+        };
+        process.send?.(endMessage);
 
-    const result = await execa(binaryName, commandLineArgs, {
-        cwd,
-        reject: false,
-    });
-
-    const grepResults = parseRipGrepOutput(result.stdout);
-
-    return grepResults.flatMap(resultToEntry);
+        throw ex;
+    }
 }

@@ -1,4 +1,6 @@
-import {writeFile} from 'node:fs/promises';
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import type {ActionStartMessage, ActionEndMessage, WriteMessageArgs} from './interface.js';
 
 /**
  * Input parameters for the write function
@@ -16,5 +18,37 @@ export interface WriteInput {
  * @returns Promise that resolves when write is complete
  */
 export async function write({uri, content}: WriteInput): Promise<void> {
-    await writeFile(uri, content, 'utf8');
+    const uuid = crypto.randomUUID();
+
+    const startMessage: ActionStartMessage<WriteMessageArgs> = {
+        type: 'actionStart',
+        uuid,
+        name: 'write',
+        args: {
+            uri,
+            contentLineCount: content.split('\n').length,
+        },
+    };
+    process.send?.(startMessage);
+
+    try {
+        await fs.writeFile(uri, content, 'utf8');
+
+        const endMessage: ActionEndMessage = {
+            type: 'actionEnd',
+            uuid,
+            result: 'success',
+        };
+        process.send?.(endMessage);
+    }
+    catch (ex) {
+        const endMessage: ActionEndMessage = {
+            type: 'actionEnd',
+            uuid,
+            result: 'error',
+        };
+        process.send?.(endMessage);
+
+        throw ex;
+    }
 }

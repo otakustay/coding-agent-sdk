@@ -213,7 +213,9 @@ for await (const chunk of startAgentTask({query: argv.query, model: argv.model})
             );
 
             const resultLength = markdownContent.length;
-            tracker.startSpinner(`executed (${resultLength} characters) > ${outputFilename}`);
+            const actionCount = chunk.actions.filter(action => action.type === 'actionStart').length;
+            const actionText = actionCount > 0 ? `, ${actionCount} actions` : '';
+            tracker.startSpinner(`executed (${resultLength} characters${actionText}) > ${outputFilename}`);
             tracker.endSpinner();
             break;
         }

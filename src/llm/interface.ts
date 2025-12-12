@@ -1,4 +1,5 @@
 import type {Message, ToolDefinitionJson} from '@openrouter/sdk/models';
+import type {ActionMessage} from '../tools/evaluate/index.js';
 
 export interface StreamingChatOptions {
     model: string;
@@ -44,6 +45,7 @@ export interface ChatToolResultChunk {
     id: string;
     index: number;
     result: unknown;
+    actions: ActionMessage[];
 }
 
 export interface ChatDoneChunk {

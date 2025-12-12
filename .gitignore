@@ -4,3 +4,4 @@ node_modules
 /.comate/specs
 .env
 /data
+.comate/project_notes

@@ -98,11 +98,11 @@ export const evaluateToolDescription: ToolDefinitionJson = {
             export interface PatchInput {
                 /** File path to patch */
                 uri: string;
-                /** Array of search-replace patch entries */
-                patches: Patch[];
+                /** Search-replace patch entry */
+                patch: Patch;
             }
 
-            /** Apply multiple patches to a file by searching and replacing text patterns */
+            /** Apply a patch to a file by searching and replacing text patterns */
             export function patch(input: PatchInput): Promise<void>;
 
             /** Input parameters for the read function */

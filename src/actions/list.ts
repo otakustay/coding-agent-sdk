@@ -1,5 +1,7 @@
-import {readdir, stat} from 'node:fs/promises';
-import {join} from 'node:path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import type {ActionStartMessage, ActionEndMessage, ListMessageArgs} from './interface.js';
 
 /**
  * A directory or file entry in the file system tree
@@ -21,26 +23,59 @@ export interface ListInput {
     depth?: number;
 }
 
-/**
- * List directory structure recursively
- * @param options - List options
- * @returns Promise that resolves to directory entry with children
- */
-export async function list({uri, depth = 1}: ListInput): Promise<ListEntry> {
-    const stats = await stat(uri);
+async function directory({uri, depth = 1}: ListInput): Promise<ListEntry> {
+    const stats = await fs.stat(uri);
     const name = uri.split('/').pop() || uri;
 
     if (!stats.isDirectory() || depth === 0) {
         return {name};
     }
 
-    const entries = await readdir(uri);
-    const children = await Promise.all(
-        entries.map(async entry => {
-            const fullPath = join(uri, entry);
-            return await list({uri: fullPath, depth: depth - 1});
-        })
-    );
+    const entries = await fs.readdir(uri);
+    const children = await Promise.all(entries.map(v => directory({uri: path.join(uri, v), depth: depth - 1})));
 
     return {name, children};
+}
+
+/**
+ * List directory structure recursively
+ * @param options - List options
+ * @returns Promise that resolves to directory entry with children
+ */
+export async function list(input: ListInput): Promise<ListEntry> {
+    const uuid = crypto.randomUUID();
+
+    const startMessage: ActionStartMessage<ListMessageArgs> = {
+        type: 'actionStart',
+        uuid,
+        name: 'list',
+        args: {
+            uri: input.uri,
+            depth: input.depth ?? 1,
+        },
+    };
+    process.send?.(startMessage);
+
+    try {
+        const result = await directory(input);
+
+        const endMessage: ActionEndMessage = {
+            type: 'actionEnd',
+            uuid,
+            result: 'success',
+        };
+        process.send?.(endMessage);
+
+        return result;
+    }
+    catch (ex) {
+        const endMessage: ActionEndMessage = {
+            type: 'actionEnd',
+            uuid,
+            result: 'error',
+        };
+        process.send?.(endMessage);
+
+        throw ex;
+    }
 }

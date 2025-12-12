@@ -5,6 +5,7 @@ import {evaluateToolDescription} from './tools.js';
 import {evaluate} from '../tools/evaluate/index.js';
 import {AssistantMessageBuilder} from './builder.js';
 import type {Message} from '@openrouter/sdk/models';
+import type {EvaluateResult} from '../tools/evaluate/interface.js';
 
 export {AssistantMessageBuilder} from './builder.js';
 export type {
@@ -54,6 +55,7 @@ export async function* startAgentTask(options: StartAgentTaskOptions): AsyncGene
         const toolCalls = assistantMessage.toolCalls ?? [];
 
         if (toolCalls.length === 0) {
+            yield {type: 'done'};
             break;
         }
 
@@ -69,7 +71,7 @@ export async function* startAgentTask(options: StartAgentTaskOptions): AsyncGene
             }
 
             const args = JSON.parse(toolCall.function.arguments);
-            const result = await toolImplement(args);
+            const result = await toolImplement(args) as EvaluateResult;
 
             toolResults.push({id: toolCall.id, result});
 
@@ -78,6 +80,7 @@ export async function* startAgentTask(options: StartAgentTaskOptions): AsyncGene
                 id: toolCall.id,
                 index,
                 result,
+                actions: result.actions,
             };
         }
 
