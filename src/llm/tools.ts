@@ -86,24 +86,56 @@ export const evaluateToolDescription: ToolDefinitionJson = {
             /** List directory structure recursively */
             export function list(input: ListInput): Promise<ListEntry>;
 
-            /** A patch entry that specifies a search pattern and its replacement */
-            export interface Patch {
-                /** The text pattern to search for */
-                search: string;
-                /** The text to replace the search pattern with */
-                replace: string;
-            }
-
-            /** Input parameters for the patch function */
-            export interface PatchInput {
-                /** File path to patch */
+            /**
+             * Apply a patch to a file by searching and replacing text patterns
+             *
+             * The search parameter can be either:
+             *
+             * 1. A string pattern to search for directly
+             * 2. A function that transforms the entire file content to extract the exact text to replace
+             *
+             * Using a function for search is beneficial when:
+             *
+             * - The search block is large and transcribing it manually is error-prone
+             * - You need to dynamically locate the replacement target based on file structure
+             * - The exact text position varies but can be computed from the full content
+             *
+             * To use a function as search parameter, it's important to strictly align with these:
+             *
+             * 1. You MUST have fully read the file section you intend to replace before writing the search function
+             * 2. Ensure you know the exact content to be replaced, including all whitespace and formatting
+             * 3. The replace text MUST match the indentation structure of source code, especially the first line
+             *
+             * @example
+             * // Direct string search
+             * await patch({
+             *     uri: 'path/to/file.ts',
+             *     search: 'old text',
+             *     replace: 'new text'
+             * });
+             *
+             * @example
+             * // Function-based search, be aware of indentation on replace string
+             * await patch({
+             *     uri: 'path/to/file.ts',
+             *     search: (content) => {
+             *         // Extract the exact text block you want to replace
+             *         const match = content.match(/function foo\\(\\) \\{[\\s\\S]*?\\n\\}/);
+             *         return match ? match[0] : '';
+             *     },
+             *     replace: '    function foo() {\\n    // new implementation\\n}'
+             * });
+             *
+             * @param uri - File path to patch
+             * @param search - The text pattern to search for, or a function that extracts the target text from file content
+             * @param replace - The text to replace the search pattern with
+             * @returns Promise that resolves when the patch is applied
+             */
+            export function patch(input: {
                 uri: string;
-                /** Search-replace patch entry */
-                patch: Patch;
-            }
-
-            /** Apply a patch to a file by searching and replacing text patterns */
-            export function patch(input: PatchInput): Promise<void>;
+                search: string | ((content: string) => string);
+                replace: string;
+            }): Promise<void>;
 
             /** Input parameters for the read function */
             export interface ReadInput {

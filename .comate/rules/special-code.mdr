@@ -1,0 +1,8 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+## 特殊代码关联
+
+- 当`src/actions`下的函数的JSDoc注释有变化时，它们需要被同步到`src/llm/tools.ts`的工具定义中。
