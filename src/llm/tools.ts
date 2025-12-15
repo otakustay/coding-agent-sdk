@@ -83,8 +83,27 @@ export const evaluateToolDescription: ToolDefinitionJson = {
                 depth?: number;
             }
 
-            /** List directory structure recursively */
-            export function list(input: ListInput): Promise<ListEntry>;
+            /**
+             * List directory structure recursively
+             *
+             * Returns a formatted string representation of the directory contents where:
+             *
+             * - Each line represents one file or directory within the specified path
+             * - Indentation (2 spaces per level) indicates nesting depth relative to the target directory
+             * - Directories end with a trailing slash (/)
+             * - Files do not have a trailing slash
+             * - The target directory itself is not included in the output
+             *
+             * Example output for listing 'src/':
+             *
+             * \`\`\`
+             * actions/
+             *   exec.ts
+             *   grep.ts
+             * run.ts
+             * \`\`\`
+             */
+            export function list(input: ListInput): Promise<string>;
 
             /**
              * Apply a patch to a file by searching and replacing text patterns
