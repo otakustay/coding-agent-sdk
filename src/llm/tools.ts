@@ -15,6 +15,9 @@ export const evaluateToolDescription: ToolDefinitionJson = {
             - It always runs in root of this workspace, \`process.cwd()\` points to workspace directory.
             - Native \`fetch\` function is available.
             - You will access stdout (as \`output\`) and stderr (as \`error\`) from this tool, use \`console\` to output text to stdio.
+            - If the script accepts command-line arguments, you can access them through \`process.argv\`.
+
+            For general-purpose scripts that can be reused across different tasks, set \`reusable: true\`. This will persist the script and allow it to be invoked later by name only. Make such scripts parameterizable through command-line arguments (\`process.argv\`) to maximize their utility across different contexts.
 
             In addition to all built-in and native modules, you have a special \`agent-tools\` module which export several functions you should utilize in higher priority than NodeJS's built-in ones.
 
@@ -182,15 +185,39 @@ export const evaluateToolDescription: ToolDefinitionJson = {
             properties: {
                 name: {
                     type: 'string',
-                    description: 'Name of the script',
+                    description:
+                        'Name of the script. When referencing an existing reusable script, provide only the name without the code parameter.',
                 },
                 code: {
                     type: 'string',
-                    description: 'The code to be evaluated',
+                    description:
+                        'The code to be evaluated. Optional when invoking an existing reusable script by name only.',
+                },
+                description: {
+                    type: 'string',
+                    description: dedent`
+                        Description of the script. Required when reusable is true. Should be concise and include:
+
+                        - What the script does
+                        - Parameter descriptions if the script accepts arguments via process.argv
+                    `,
                 },
                 reusable: {
                     type: 'boolean',
-                    description: 'Whether the sandbox should be reusable',
+                    description: dedent`
+                        Whether to persist this script for future reuse. When set to true:
+
+                        - The script will be saved and can be invoked later by name only
+                        - A description field is required to document the script's purpose and parameters
+                        - Consider making the script accept arguments via process.argv for flexibility
+                    `,
+                },
+                args: {
+                    type: 'array',
+                    items: {
+                        type: 'string',
+                    },
+                    description: 'Arguments to pass to the script via process.argv',
                 },
                 dependencies: {
                     type: 'array',
@@ -200,7 +227,7 @@ export const evaluateToolDescription: ToolDefinitionJson = {
                     description: 'NPM dependencies to install',
                 },
             },
-            required: ['name', 'code'],
+            required: ['name'],
         },
     },
 };

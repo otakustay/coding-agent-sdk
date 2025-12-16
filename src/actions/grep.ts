@@ -67,20 +67,24 @@ interface GrepResult {
     contextAfter: LineMatch[];
 }
 
+interface ConsumeState {
+    current: GrepResult | null;
+}
+
 /**
  * Parse ripgrep JSON output line by line
  */
 function parseRipGrepOutput(output: string): GrepResult[] {
     const lines = output.split('\n').filter(line => line.trim());
     const results: GrepResult[] = [];
-    let current: GrepResult | null = null;
+    const state: ConsumeState = {current: null};
 
     for (const line of lines) {
         try {
             const item: RipGrepOutputItem = JSON.parse(line);
 
             if (item.type === 'begin') {
-                current = {
+                state.current = {
                     file: item.data.path.text,
                     contextBefore: [],
                     matches: [],
@@ -89,22 +93,22 @@ function parseRipGrepOutput(output: string): GrepResult[] {
                 continue;
             }
 
-            if (!current) {
+            if (!state.current) {
                 continue;
             }
 
             if (item.type === 'match') {
-                current.matches.push({line: item.data.lines.text, lineNumber: item.data.line_number});
+                state.current.matches.push({line: item.data.lines.text, lineNumber: item.data.line_number});
             }
             else if (item.type === 'context') {
-                const container = current.matches.length
-                    ? current.contextAfter
-                    : current.contextBefore;
+                const container = state.current.matches.length
+                    ? state.current.contextAfter
+                    : state.current.contextBefore;
                 container.push({line: item.data.lines.text, lineNumber: item.data.line_number});
             }
             else if (item.type === 'end') {
-                results.push(current);
-                current = null;
+                results.push(state.current);
+                state.current = null;
             }
         }
         catch {

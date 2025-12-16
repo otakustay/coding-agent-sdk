@@ -190,12 +190,13 @@ for await (const chunk of startAgentTask({query: argv.query, model: argv.model})
             const scriptFilename = `${args.name}-script.js`;
 
             // Save script to store
-            if (args.code) {
-                const scriptContent = `// ${args.name}\n${args.code}`;
-                await fs.writeFile(path.join(storeDirectory, scriptFilename), scriptContent, 'utf8');
-            }
+            const scriptContent = args.code
+                ? `// ${args.name}\n${args.code}`
+                : `// ${args.name}\nreuse('${args.name}')`;
+            await fs.writeFile(path.join(storeDirectory, scriptFilename), scriptContent, 'utf8');
 
-            tracker.updateSpinner(`${args.name} (${codeLength} characters) > ${scriptFilename}`);
+            const reusableTag = args.reusable ? ' [reusable]' : '';
+            tracker.updateSpinner(`${args.name} (${codeLength} characters)${reusableTag} > ${scriptFilename}`);
             tracker.endSpinner();
             break;
         }

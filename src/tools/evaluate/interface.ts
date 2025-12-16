@@ -1,12 +1,12 @@
 import type {ActionStartMessage, ActionEndMessage} from '../../actions/index.js';
 
 export type ActionMessage = ActionStartMessage<any> | ActionEndMessage;
-
 export interface EvaluateInput {
     name: string;
+    code?: string;
     reusable?: boolean;
+    description?: string;
     dependencies?: string[];
-    code: string;
 }
 
 export interface ExecuteResult {

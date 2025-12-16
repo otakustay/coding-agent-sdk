@@ -2,10 +2,12 @@ import type {ChatChunk, ChatOutputChunk, StartAgentTaskOptions} from './interfac
 import {streamingChat} from './openRouter.js';
 import {renderSystemPrompt} from './prompt.js';
 import {evaluateToolDescription} from './tools.js';
-import {evaluate} from '../tools/evaluate/index.js';
+import {createEvaluateTool} from '../tools/evaluate/index.js';
 import {AssistantMessageBuilder} from './builder.js';
 import type {Message} from '@openrouter/sdk/models';
 import type {EvaluateResult} from '../tools/evaluate/interface.js';
+import {SandboxManager} from '../sandbox/index.js';
+import {retrieveContext} from '../context/index.js';
 
 export {AssistantMessageBuilder} from './builder.js';
 export type {
@@ -21,8 +23,6 @@ export type {
     ChatChunk,
 } from './interface.js';
 
-const toolImplements: Record<string, ((args: any) => unknown) | undefined> = {evaluate};
-
 async function* runModel(messages: Message[], model: string): AsyncGenerator<ChatOutputChunk> {
     const tools = [evaluateToolDescription];
     const stream = streamingChat({model, messages, tools});
@@ -32,10 +32,19 @@ async function* runModel(messages: Message[], model: string): AsyncGenerator<Cha
 
 export async function* startAgentTask(options: StartAgentTaskOptions): AsyncGenerator<ChatChunk> {
     const {query, model} = options;
+
+    const sandbox = new SandboxManager();
+    await sandbox.init();
+
+    const context = await retrieveContext({sandbox});
+
+    const evaluate = createEvaluateTool({sandbox});
+    const toolImplements: Record<string, ((args: any) => unknown) | undefined> = {evaluate};
+
     const messages: Message[] = [
         {
             role: 'system',
-            content: renderSystemPrompt(),
+            content: renderSystemPrompt({context}),
         },
         {
             role: 'user',
