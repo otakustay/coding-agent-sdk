@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises';
 import {diffLines} from 'diff';
 import crypto from 'node:crypto';
-import type {ActionStartMessage, ActionEndMessage, PatchMessageArgs} from './interface.js';
+import type {ActionStartMessage, ActionEndMessage, PatchMessageArgs, PatchMessageResult} from './interface.js';
 
 /**
  * Apply a patch to a file by searching and replacing text patterns
@@ -58,19 +58,6 @@ export async function patch({
     replace: string;
 }): Promise<void> {
     const uuid = crypto.randomUUID();
-    const content = await fs.readFile(uri, 'utf8');
-    const searchPattern = typeof search === 'function' ? search(content) : search;
-    const diff = diffLines(searchPattern, replace);
-    const state = {added: 0, deleted: 0};
-
-    for (const part of diff) {
-        if (part.added) {
-            state.added += part.count || 0;
-        }
-        else if (part.removed) {
-            state.deleted += part.count || 0;
-        }
-    }
 
     const startMessage: ActionStartMessage<PatchMessageArgs> = {
         type: 'actionStart',
@@ -78,20 +65,36 @@ export async function patch({
         name: 'patch',
         args: {
             uri,
-            addedLineCount: state.added,
-            deletedLineCount: state.deleted,
         },
     };
     process.send?.(startMessage);
 
     try {
+        const content = await fs.readFile(uri, 'utf8');
+        const searchPattern = typeof search === 'function' ? search(content) : search;
+        const diff = diffLines(searchPattern, replace);
+        const state = {added: 0, deleted: 0};
+
+        for (const part of diff) {
+            if (part.added) {
+                state.added += part.count || 0;
+            }
+            else if (part.removed) {
+                state.deleted += part.count || 0;
+            }
+        }
+
         const newContent = content.replace(searchPattern, replace);
         await fs.writeFile(uri, newContent, 'utf8');
 
-        const endMessage: ActionEndMessage = {
+        const endMessage: ActionEndMessage<PatchMessageResult> = {
             type: 'actionEnd',
             uuid,
             result: 'success',
+            data: {
+                addedLineCount: state.added,
+                deletedLineCount: state.deleted,
+            },
         };
         process.send?.(endMessage);
     }

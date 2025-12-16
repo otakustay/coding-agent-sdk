@@ -1,7 +1,7 @@
 import {execa} from 'execa';
 import unixify from 'unixify';
 import crypto from 'node:crypto';
-import type {ActionStartMessage, ActionEndMessage, GrepMessageArgs} from './interface.js';
+import type {ActionStartMessage, ActionEndMessage, GrepMessageArgs, GrepMessageResult} from './interface.js';
 
 /**
  * A grep result entry containing matched file information and content
@@ -183,10 +183,13 @@ export async function grep({cwd = process.cwd(), glob, regex}: GrepInput): Promi
         const grepResults = parseRipGrepOutput(result.stdout);
         const entries = grepResults.flatMap(resultToEntry);
 
-        const endMessage: ActionEndMessage = {
+        const endMessage: ActionEndMessage<GrepMessageResult> = {
             type: 'actionEnd',
             uuid,
             result: 'success',
+            data: {
+                matchesCount: entries.length,
+            },
         };
         process.send?.(endMessage);
 

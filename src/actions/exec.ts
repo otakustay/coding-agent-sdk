@@ -1,6 +1,6 @@
 import {execa} from 'execa';
 import crypto from 'node:crypto';
-import type {ActionStartMessage, ActionEndMessage, ExecMessageArgs} from './interface.js';
+import type {ActionStartMessage, ActionEndMessage, ExecMessageArgs, ExecMessageResult} from './interface.js';
 
 /**
  * Result of executing a command
@@ -53,15 +53,20 @@ export async function exec({cwd, command, args = []}: ExecInput): Promise<ExecRe
         }
         const result = await execa(command, args, options);
 
-        const endMessage: ActionEndMessage = {
+        const exitCode = result.exitCode ?? 0;
+
+        const endMessage: ActionEndMessage<ExecMessageResult> = {
             type: 'actionEnd',
             uuid,
             result: 'success',
+            data: {
+                exitCode,
+            },
         };
         process.send?.(endMessage);
 
         return {
-            exitCode: result.exitCode ?? 0,
+            exitCode,
             output: result.stdout || '',
             error: result.stderr || '',
         };
