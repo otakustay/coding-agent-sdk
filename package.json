@@ -24,12 +24,27 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "@commitlint/cli": "^20.1.0",
-    "@commitlint/config-conventional": "^20.0.0",
-    "@commitlint/types": "^20.0.0",
-    "dprint": "^0.50.2",
+    "@commitlint/cli": "^20.4.0",
+    "@commitlint/config-conventional": "^20.4.0",
+    "@commitlint/types": "^20.4.0",
+    "@types/unixify": "^1.0.2",
+    "@types/yargs": "^17.0.35",
+    "dprint": "^0.51.1",
+    "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "oxlint": "^1.31.0",
-    "typescript": "^5.9.3"
+    "oxlint": "^1.43.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "dependencies": {
+    "@openrouter/sdk": "^0.5.1",
+    "dedent": "^1.7.1",
+    "diff": "^8.0.3",
+    "execa": "^9.6.1",
+    "globby": "^16.1.0",
+    "unixify": "^1.0.0",
+    "yargs": "^18.0.0",
+    "zod": "^4.3.6"
   }
 }
