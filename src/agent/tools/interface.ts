@@ -1,7 +1,9 @@
 import type {z} from 'zod';
+import type {AgentWorkItem} from '../loop/interface.js';
 
 export interface ToolExecutionContext {
-    id?: string;
+    historyItems: AgentWorkItem[];
+    respondingModel: string;
 }
 
 export interface ToolDefinition {

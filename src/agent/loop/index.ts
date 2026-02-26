@@ -1,13 +1,24 @@
+/* oxlint-disable max-lines */
 import {z} from 'zod';
 import {OpenRouter} from '@openrouter/sdk';
 import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
-import type {AgentWorkItem, StreamChunk} from './interface.js';
+import type {
+    AgentWorkItem,
+    AgentWorkItemToolCallOutput,
+    AgentWorkItemToolResultInput,
+    StreamChunk,
+} from './interface.js';
 import {transformWorkItemsToInput} from './transform.js';
 import type {ToolDefinition, ToolImplementation} from '../tools/interface.js';
+import {stringifyError} from '../../utils/error.js';
 
 interface RegisteredTool {
     definition: ToolDefinition;
     implement: ToolImplementation;
+}
+
+function isExecutableToolCall(item: AgentWorkItem): item is AgentWorkItemToolCallOutput {
+    return item.type === 'output.toolCall' && item.status === 'completed';
 }
 
 export class AgentLoop {
@@ -25,36 +36,54 @@ export class AgentLoop {
         this.tools.set(definition.name, {definition, implement});
     }
 
-    private buildToolDefinitions(): OpenResponsesRequestToolFunction[] {
-        const tools: OpenResponsesRequestToolFunction[] = [];
-        for (const {definition} of this.tools.values()) {
-            const jsonSchema = z.toJSONSchema(definition.inputSchema);
-            tools.push({
-                type: 'function',
-                name: definition.name,
-                description: definition.description,
-                parameters: jsonSchema as Record<string, unknown>,
-            });
-        }
-        return tools;
-    }
-
     /**
-     * Submit a user query and stream chunks with status (open/completed).
-     * Consumers can unify handling: find by id (create if not found), then merge fields.
+     * Submit a user query, stream all model turns and tool calls until completion.
      *
      * @param userQuery - The user's input query
      * @yields StreamChunk - Chunks with type, id, status, and optional fields to merge
      */
     async *submitUserQuery(userQuery: string): AsyncGenerator<StreamChunk, void, undefined> {
-        // Add user message to items
-        const userItem: AgentWorkItem = {
-            type: 'input.user',
-            content: [{type: 'text', content: userQuery}],
-        };
-        this.items.push(userItem);
+        this.items.push({type: 'input.user', content: [{type: 'text', content: userQuery}]});
 
-        // Send request with streaming
+        while (true) {
+            const startIndex = this.items.length;
+
+            yield* this.streamModelResponse();
+
+            const newToolCalls = this.items.slice(startIndex).filter(isExecutableToolCall);
+
+            if (newToolCalls.length === 0) {
+                break;
+            }
+
+            const results = await this.executeToolCalls(newToolCalls);
+
+            for (const result of results) {
+                this.items.push(result);
+                yield {
+                    type: 'input.toolResult',
+                    id: `toolResult:${result.callId}`,
+                    status: 'completed',
+                    callId: result.callId,
+                    content: result.content,
+                };
+            }
+        }
+    }
+
+    private buildToolDefinitions(): OpenResponsesRequestToolFunction[] {
+        const toToolDefinition = ({definition}: RegisteredTool): OpenResponsesRequestToolFunction => {
+            return {
+                type: 'function',
+                name: definition.name,
+                description: definition.description,
+                parameters: z.toJSONSchema(definition.inputSchema) as Record<string, unknown>,
+            };
+        };
+        return [...this.tools.values()].map(toToolDefinition);
+    }
+
+    private async *streamModelResponse(): AsyncGenerator<StreamChunk, void, undefined> {
         const toolDefinitions = this.buildToolDefinitions();
         const response = await this.client.beta.responses.send({
             stream: true,
@@ -63,9 +92,7 @@ export class AgentLoop {
             ...(toolDefinitions.length > 0 ? {tools: toolDefinitions} : {}),
         });
 
-        // Stream events and yield chunks
         for await (const event of response) {
-            // Handle error events
             if (event.type === 'error') {
                 throw new Error(event.message ?? 'Unknown error occurred');
             }
@@ -74,7 +101,6 @@ export class AgentLoop {
                 throw new Error(event.response.error?.message ?? 'Response failed');
             }
 
-            // Handle output_item.added - create new item
             if (event.type === 'response.output_item.added') {
                 const {item} = event;
 
@@ -127,12 +153,10 @@ export class AgentLoop {
                 continue;
             }
 
-            // Handle content_part.added - prepare for content parts
             if (event.type === 'response.content_part.added') {
                 continue;
             }
 
-            // Handle delta events - yield content updates
             if (event.type === 'response.output_text.delta') {
                 const item = this.items.findLast(i => i.type === 'output.text' && i.id === event.itemId);
                 if (item && item.type === 'output.text') {
@@ -203,7 +227,6 @@ export class AgentLoop {
                 continue;
             }
 
-            // Handle done events - mark as completed
             if (event.type === 'response.output_item.done') {
                 const matchId = event.item.type === 'function_call'
                     ? event.item.id ?? event.item.callId
@@ -240,5 +263,39 @@ export class AgentLoop {
                 continue;
             }
         }
+    }
+
+    private createToolCallContext() {
+        return {historyItems: [...this.items], respondingModel: this.model};
+    }
+    private async executeToolCall(toolCall: AgentWorkItemToolCallOutput): Promise<AgentWorkItemToolResultInput> {
+        const registered = this.tools.get(toolCall.name);
+        if (!registered) {
+            return {
+                type: 'input.toolResult',
+                callId: toolCall.callId,
+                content: `Error: Tool "${toolCall.name}" is not registered`,
+            };
+        }
+        try {
+            const parameters = JSON.parse(toolCall.arguments);
+            const content = await registered.implement(parameters, this.createToolCallContext());
+            return {type: 'input.toolResult', callId: toolCall.callId, content};
+        }
+        catch (ex) {
+            return {
+                type: 'input.toolResult',
+                callId: toolCall.callId,
+                content: `Error: ${stringifyError(ex)}`,
+            };
+        }
+    }
+
+    private async executeToolCalls(toolCalls: AgentWorkItemToolCallOutput[]): Promise<AgentWorkItemToolResultInput[]> {
+        const results: AgentWorkItemToolResultInput[] = [];
+        for (const toolCall of toolCalls) {
+            results.push(await this.executeToolCall(toolCall));
+        }
+        return results;
     }
 }

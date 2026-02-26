@@ -35,6 +35,12 @@ function createItemFromChunk(chunk: StreamChunk): AgentWorkItem {
                 name: chunk.name ?? '',
                 arguments: chunk.arguments ?? '',
             };
+        case 'input.toolResult':
+            return {
+                type: 'input.toolResult',
+                callId: chunk.callId,
+                content: chunk.content,
+            };
         default:
             assertNever<{type: string}>(chunk, c => `Unknown chunk type: ${c.type}`);
     }
@@ -72,6 +78,8 @@ function mergeChunkIntoItem(item: OutputItem, chunk: StreamChunk): OutputItem {
                 name: chunk.name ?? item.name,
                 arguments: item.arguments + (chunk.arguments ?? ''),
             };
+        case 'input.toolResult':
+            return item;
         default:
             assertNever<{type: string}>(chunk, c => `Unknown chunk type: ${c.type}`);
     }

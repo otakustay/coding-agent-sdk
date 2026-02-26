@@ -11,18 +11,22 @@ if (!apiKey) {
 
 const agentLoop = new AgentLoop(apiKey, 'moonshotai/kimi-k2.5');
 
-// Register read tool
 const readDefinition = await defineReadTool();
 const readImplement = await createReadImplement();
 agentLoop.registerTool(readDefinition, readImplement);
 
-let items: AgentWorkItem[] = [];
+interface LoopState {
+    items: AgentWorkItem[];
+}
+const state: LoopState = {
+    items: [],
+};
 
 const first = agentLoop.submitUserQuery(
     '请使用 read 工具读取 /Users/otakustay/Develop/coding-agent-sdk/package.json 文件'
 );
 
 for await (const update of toItemUpdateStream(first)) {
-    items = update(items);
-    console.log('Chunk:', items);
+    state.items = update(state.items);
+    console.log('Chunk:', state.items);
 }

@@ -56,8 +56,6 @@ export type AgentWorkItem =
     | AgentWorkItemToolCallOutput
     | AgentWorkItemToolResultInput;
 
-// ========== Stream Chunk Types ==========
-
 export type StreamItemStatus = 'open' | 'completed';
 
 export interface StreamChunkBase {
@@ -83,7 +81,16 @@ export interface ToolCallStreamChunk extends StreamChunkBase {
     arguments?: string;
 }
 
+export interface ToolResultStreamChunk {
+    type: 'input.toolResult';
+    id: string;
+    status: 'completed';
+    callId: string;
+    content: string;
+}
+
 export type StreamChunk =
     | ReasoningStreamChunk
     | TextStreamChunk
-    | ToolCallStreamChunk;
+    | ToolCallStreamChunk
+    | ToolResultStreamChunk;
