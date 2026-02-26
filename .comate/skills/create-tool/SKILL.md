@@ -33,18 +33,24 @@ Create `src/agent/tools/{toolName}/` with three files.
 
 ```typescript
 import {z} from 'zod';
+import type {ToolDefinition} from '../interface.js';
+import dedent from 'dedent';
 
-const {toolName}ToolInputSchema = z.object({
+const {toolName}ToolParameters = {
     param1: z.string().describe('Description for LLM'),
     param2: z.number().optional().describe('Optional parameter'),
-});
+};
+const {toolName}ToolInputSchema = z.object({toolName}ToolParameters);
 
-export type {ToolName}ToolParameters = z.inferfer<typeof {toolName}ToolInputSchema>;
+export type {ToolName}ToolParameters = z.infer<typeof {toolName}ToolInputSchema>;
 
-export async function define{ToolName}Tool() {
+export async function define{ToolName}Tool(): Promise<ToolDefinition<{ToolName}ToolParameters>> {
     return {
-        name: '{toolName}' as const,
-        description: 'Clear description of what this tool does',
+        name: '{toolName}',
+        description: dedent`
+            Clear description of what this tool does.
+            Use dedent for multiline descriptions to avoid indentation issues.
+        `,
         inputSchema: {toolName}ToolInputSchema,
     };
 }
@@ -52,10 +58,12 @@ export async function define{ToolName}Tool() {
 
 **Key points:**
 
-- Export `define{ToolName}Tool()` as an async factory function
-- Use `z.object()` with `.describe()` on each field for LLM context
+- Import `type {ToolDefinition}` from `'../interface.js'` and annotate return type explicitly
+- Define parameters as a plain object first, then wrap with `z.object()` — this is the project convention
+- Use `.describe()` on every field to give the LLM context about each parameter
 - Export the inferred type as `{ToolName}ToolParameters`
-- Return `name` with `as const` assertion
+- Use `dedent` (from the `dedent` package) for multiline description strings
+- Do **not** use `as const` on `name` — the explicit return type annotation handles typing
 
 ### 3. Write implement.ts
 
@@ -64,9 +72,9 @@ import type {{ToolName}ToolParameters} from './definition.js';
 import type {ToolImplementation} from '../interface.js';
 
 export async function create{ToolName}Implement(): Promise<ToolImplementation<{ToolName}ToolParameters>> {
-    return async (parameters, context): Promise<string> => {
+    return async (parameters): Promise<string> => {
         // Tool logic here
-        // Return a string result
+        // Return a string result — this is what the LLM receives
         return 'result';
     };
 }
@@ -74,10 +82,10 @@ export async function create{ToolName}Implement(): Promise<ToolImplementation<{T
 
 **Key points:**
 
-- Return `ToolImplementation<T>` which is `(params, context) => Promise<string>`
-- First param is the tool parameters (typed)
-- Second param is `ToolExecutionContext` (optional `id`)
-- Must return a string (tool output sent back to LLM)
+- The outer factory `create{ToolName}Implement()` is async to allow setup (e.g. config loading, sandboxing) without changing call sites
+- The inner function signature is `(parameters, context)` — omit `context` if unused (as in the `read` tool)
+- `ToolExecutionContext` provides `historyItems: AgentWorkItem[]` and `respondingModel: string` when needed
+- Must always return a `string` — errors should be caught and returned as strings so the model always gets a response
 - Use `node:fs/promises`, `child_process`, or other Node APIs as needed
 
 ### 4. Write index.ts
@@ -111,17 +119,33 @@ loop.registerTool(definition, implement);
 
 ## Example: read Tool
 
-Reference the existing `read` tool at `src/agent/tools/read/`:
+The `read` tool at `src/agent/tools/read/` is the canonical reference.
 
-**definition.ts:**
+**definition.ts pattern:**
 
-- Schema: `{file: z.string()}`
-- Describes reading file contents from filesystem
+```typescript
+const readToolParameters = {
+    target_file: z.string().describe('The absolute path to the file to read.'),
+    offset: z.number().optional().describe('...'),
+    limit: z.number().optional().describe('...'),
+};
+const readToolInputSchema = z.object(readToolParameters);
 
-**implement.ts:**
+export type ReadToolParameters = z.infer<typeof readToolInputSchema>;
 
-- Uses `node:fs/promises.readFile`
-- Returns file content as string
+export async function defineReadTool(): Promise<ToolDefinition<ReadToolParameters>> {
+    return {
+        name: 'read',
+        description: dedent`...`,
+        inputSchema: readToolInputSchema,
+    };
+}
+```
+
+**implement.ts pattern:**
+
+- Factory returns an async function; inner function only declares `parameters` (context unused)
+- Errors from `readFile` surface as thrown exceptions — caught by `AgentLoop.executeToolCall` and returned as error strings
 
 ## Interface Reference
 
@@ -129,18 +153,15 @@ See `src/agent/tools/interface.ts`:
 
 ```typescript
 interface ToolExecutionContext {
-    id?: string;
+    historyItems: AgentWorkItem[]; // full conversation history at time of call
+    respondingModel: string; // the model that issued this tool call
 }
 
-interface ToolDefinition {
+interface ToolDefinition<P = unknown> {
     name: string;
     description: string;
-    inputSchema: z.ZodObject<any>;
+    inputSchema: z.ZodType<P>; // ZodType, not ZodObject — allows any Zod schema
 }
 
-type ToolImplementation<T> = (parameters: T, context: ToolExecutionContext) => Promise<string>;
+type ToolImplementation<T = any> = (parameters: T, context: ToolExecutionContext) => Promise<string>;
 ```
-
-## Resources
-
-This skill creates project-specific tools. No bundled resources required - delete the example directories if not needed.

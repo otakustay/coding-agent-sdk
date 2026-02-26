@@ -1,5 +1,4 @@
 /* oxlint-disable max-lines */
-import {z} from 'zod';
 import {OpenRouter} from '@openrouter/sdk';
 import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
 import type {
@@ -11,6 +10,7 @@ import type {
 import {transformWorkItemsToInput} from './transform.js';
 import type {ToolDefinition, ToolImplementation} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
+import {error} from './utils/prompt.js';
 
 interface RegisteredTool {
     definition: ToolDefinition;
@@ -19,6 +19,15 @@ interface RegisteredTool {
 
 function isExecutableToolCall(item: AgentWorkItem): item is AgentWorkItemToolCallOutput {
     return item.type === 'output.toolCall' && item.status === 'completed';
+}
+
+function toToolDefinition({definition}: RegisteredTool): OpenResponsesRequestToolFunction {
+    return {
+        type: 'function',
+        name: definition.name,
+        description: definition.description,
+        parameters: definition.inputSchema.toJSONSchema(),
+    };
 }
 
 export class AgentLoop {
@@ -32,7 +41,7 @@ export class AgentLoop {
         this.model = model;
     }
 
-    registerTool(definition: ToolDefinition, implement: ToolImplementation): void {
+    registerTool(definition: ToolDefinition, implement: ToolImplementation<any>): void {
         this.tools.set(definition.name, {definition, implement});
     }
 
@@ -72,14 +81,6 @@ export class AgentLoop {
     }
 
     private buildToolDefinitions(): OpenResponsesRequestToolFunction[] {
-        const toToolDefinition = ({definition}: RegisteredTool): OpenResponsesRequestToolFunction => {
-            return {
-                type: 'function',
-                name: definition.name,
-                description: definition.description,
-                parameters: z.toJSONSchema(definition.inputSchema) as Record<string, unknown>,
-            };
-        };
         return [...this.tools.values()].map(toToolDefinition);
     }
 
@@ -274,11 +275,12 @@ export class AgentLoop {
             return {
                 type: 'input.toolResult',
                 callId: toolCall.callId,
-                content: `Error: Tool "${toolCall.name}" is not registered`,
+                content: error(`Tool "${toolCall.name}" does not exist`),
             };
         }
         try {
-            const parameters = JSON.parse(toolCall.arguments);
+            const rawParameters = JSON.parse(toolCall.arguments);
+            const parameters = registered.definition.inputSchema.parse(rawParameters);
             const content = await registered.implement(parameters, this.createToolCallContext());
             return {type: 'input.toolResult', callId: toolCall.callId, content};
         }
@@ -286,7 +288,7 @@ export class AgentLoop {
             return {
                 type: 'input.toolResult',
                 callId: toolCall.callId,
-                content: `Error: ${stringifyError(ex)}`,
+                content: error(stringifyError(ex)),
             };
         }
     }

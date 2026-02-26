@@ -6,10 +6,10 @@ export interface ToolExecutionContext {
     respondingModel: string;
 }
 
-export interface ToolDefinition {
+export interface ToolDefinition<P = unknown> {
     name: string;
     description: string;
-    inputSchema: z.ZodObject<any>;
+    inputSchema: z.ZodType<P>;
 }
 
-export type ToolImplementation<T = any> = (parameters: T, context: ToolExecutionContext) => Promise<string>;
+export type ToolImplementation<T = unknown> = (parameters: T, context: ToolExecutionContext) => Promise<string>;
