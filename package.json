@@ -10,7 +10,8 @@
     "lint": "oxlint --fix",
     "lint-staged": "lint-staged",
     "type-check": "tsc",
-    "ci": "npm ci && npm run lint && npm run build && npm run type-check"
+    "ci": "npm ci && npm run lint && npm run build && npm run type-check",
+    "prepare": "husky"
   },
   "lint-staged": {
     "*.{js,ts,jsx,tsx,json,css,md}": [

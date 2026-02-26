@@ -1,25 +1,52 @@
+import {z} from 'zod';
 import {OpenRouter} from '@openrouter/sdk';
-import type {AgentWorkItem, WorkItemStreamEvent} from './interface.js';
+import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
+import type {AgentWorkItem, StreamChunk} from './interface.js';
 import {transformWorkItemsToInput} from './transform.js';
+import type {ToolDefinition, ToolImplementation} from '../tools/interface.js';
+
+interface RegisteredTool {
+    definition: ToolDefinition;
+    implement: ToolImplementation;
+}
 
 export class AgentLoop {
     private client: OpenRouter;
     private model: string;
     private items: AgentWorkItem[] = [];
+    private tools = new Map<string, RegisteredTool>();
 
     constructor(apiKey: string, model: string) {
         this.client = new OpenRouter({apiKey});
         this.model = model;
     }
 
+    registerTool(definition: ToolDefinition, implement: ToolImplementation): void {
+        this.tools.set(definition.name, {definition, implement});
+    }
+
+    private buildToolDefinitions(): OpenResponsesRequestToolFunction[] {
+        const tools: OpenResponsesRequestToolFunction[] = [];
+        for (const {definition} of this.tools.values()) {
+            const jsonSchema = z.toJSONSchema(definition.inputSchema);
+            tools.push({
+                type: 'function',
+                name: definition.name,
+                description: definition.description,
+                parameters: jsonSchema as Record<string, unknown>,
+            });
+        }
+        return tools;
+    }
+
     /**
-     * Submit a user query and stream work item events (added, delta, done) as they arrive.
-     * Items are updated in real-time with each delta to ensure maximum data preservation.
+     * Submit a user query and stream chunks with status (open/completed).
+     * Consumers can unify handling: find by id (create if not found), then merge fields.
      *
      * @param userQuery - The user's input query
-     * @yields WorkItemStreamEvent - Stream events in the format of type.action (e.g., text.delta, reasoning.added)
+     * @yields StreamChunk - Chunks with type, id, status, and optional fields to merge
      */
-    async *submitUserQuery(userQuery: string): AsyncGenerator<WorkItemStreamEvent, void, undefined> {
+    async *submitUserQuery(userQuery: string): AsyncGenerator<StreamChunk, void, undefined> {
         // Add user message to items
         const userItem: AgentWorkItem = {
             type: 'input.user',
@@ -28,13 +55,15 @@ export class AgentLoop {
         this.items.push(userItem);
 
         // Send request with streaming
+        const toolDefinitions = this.buildToolDefinitions();
         const response = await this.client.beta.responses.send({
             stream: true,
             model: this.model,
             input: transformWorkItemsToInput(this.items),
+            ...(toolDefinitions.length > 0 ? {tools: toolDefinitions} : {}),
         });
 
-        // Stream events and yield items
+        // Stream events and yield chunks
         for await (const event of response) {
             // Handle error events
             if (event.type === 'error') {
@@ -57,7 +86,11 @@ export class AgentLoop {
                         content: '',
                         summary: '',
                     });
-                    yield {type: 'reasoning.added', id: item.id};
+                    yield {
+                        type: 'output.reasoning',
+                        id: item.id,
+                        status: 'open',
+                    };
                 }
                 else if (item.type === 'message') {
                     this.items.push({
@@ -66,10 +99,13 @@ export class AgentLoop {
                         status: 'open',
                         content: '',
                     });
-                    yield {type: 'text.added', id: item.id};
+                    yield {
+                        type: 'output.text',
+                        id: item.id,
+                        status: 'open',
+                    };
                 }
                 else if (item.type === 'function_call') {
-                    // Type narrowing for function_call
                     const functionCallItem = item as Extract<typeof item, {type: 'function_call'}>;
                     this.items.push({
                         type: 'output.toolCall',
@@ -80,8 +116,9 @@ export class AgentLoop {
                         arguments: '',
                     });
                     yield {
-                        type: 'toolCall.added',
+                        type: 'output.toolCall',
                         id: functionCallItem.id ?? '',
+                        status: 'open',
                         callId: functionCallItem.callId ?? '',
                         name: functionCallItem.name ?? '',
                     };
@@ -92,17 +129,21 @@ export class AgentLoop {
 
             // Handle content_part.added - prepare for content parts
             if (event.type === 'response.content_part.added') {
-                // No need to yield, already handled in output_item.added
                 continue;
             }
 
-            // Handle delta events - accumulate content
+            // Handle delta events - yield content updates
             if (event.type === 'response.output_text.delta') {
                 const item = this.items.findLast(i => i.type === 'output.text' && i.id === event.itemId);
                 if (item && item.type === 'output.text') {
                     item.content += event.delta;
                 }
-                yield {type: 'text.delta', id: event.itemId, contentDelta: event.delta};
+                yield {
+                    type: 'output.text',
+                    id: event.itemId,
+                    status: 'open',
+                    content: event.delta,
+                };
                 continue;
             }
 
@@ -111,7 +152,12 @@ export class AgentLoop {
                 if (item && item.type === 'output.reasoning') {
                     item.content += event.delta;
                 }
-                yield {type: 'reasoning.delta', id: event.itemId, contentDelta: event.delta};
+                yield {
+                    type: 'output.reasoning',
+                    id: event.itemId,
+                    status: 'open',
+                    content: event.delta,
+                };
                 continue;
             }
 
@@ -120,7 +166,12 @@ export class AgentLoop {
                 if (item && item.type === 'output.reasoning') {
                     item.summary += event.delta;
                 }
-                yield {type: 'reasoning.delta', id: event.itemId, summaryDelta: event.delta};
+                yield {
+                    type: 'output.reasoning',
+                    id: event.itemId,
+                    status: 'open',
+                    summary: event.delta,
+                };
                 continue;
             }
 
@@ -129,7 +180,12 @@ export class AgentLoop {
                 if (item && item.type === 'output.toolCall') {
                     item.arguments += event.delta;
                 }
-                yield {type: 'toolCall.delta', id: event.itemId, argumentsDelta: event.delta};
+                yield {
+                    type: 'output.toolCall',
+                    id: event.itemId,
+                    status: 'open',
+                    arguments: event.delta,
+                };
                 continue;
             }
 
@@ -138,21 +194,30 @@ export class AgentLoop {
                 if (item && item.type === 'output.text') {
                     item.content += event.delta;
                 }
-                yield {type: 'text.delta', id: event.itemId, contentDelta: event.delta};
+                yield {
+                    type: 'output.text',
+                    id: event.itemId,
+                    status: 'open',
+                    content: event.delta,
+                };
                 continue;
             }
 
-            // Handle done events - update status
+            // Handle done events - mark as completed
             if (event.type === 'response.output_item.done') {
+                const matchId = event.item.type === 'function_call'
+                    ? event.item.id ?? event.item.callId
+                    : event.item.id;
+
                 const item = this.items.findLast(
                     i => (i.type === 'output.reasoning'
                         || i.type === 'output.reasoningSummary'
                         || i.type === 'output.text'
                         || i.type === 'output.toolCall')
-                        && i.id === event.item.id
+                        && i.id === matchId
                 );
+
                 if (item) {
-                    // Type guard to ensure item has status property
                     if (
                         item.type === 'output.reasoning'
                         || item.type === 'output.reasoningSummary'
@@ -163,13 +228,13 @@ export class AgentLoop {
                     }
 
                     if (item.type === 'output.reasoning') {
-                        yield {type: 'reasoning.done', id: item.id};
+                        yield {type: 'output.reasoning', id: item.id, status: 'completed'};
                     }
                     else if (item.type === 'output.text') {
-                        yield {type: 'text.done', id: item.id};
+                        yield {type: 'output.text', id: item.id, status: 'completed'};
                     }
                     else if (item.type === 'output.toolCall') {
-                        yield {type: 'toolCall.done', id: item.id};
+                        yield {type: 'output.toolCall', id: item.id, status: 'completed'};
                     }
                 }
                 continue;

@@ -56,68 +56,34 @@ export type AgentWorkItem =
     | AgentWorkItemToolCallOutput
     | AgentWorkItemToolResultInput;
 
-// Stream events - Delta events for incremental updates
-export interface WorkItemReasoningDelta {
-    type: 'reasoning.delta';
+// ========== Stream Chunk Types ==========
+
+export type StreamItemStatus = 'open' | 'completed';
+
+export interface StreamChunkBase {
     id: string;
-    contentDelta?: string;
-    summaryDelta?: string;
+    status: StreamItemStatus;
 }
 
-export interface WorkItemTextDelta {
-    type: 'text.delta';
-    id: string;
-    contentDelta: string;
+export interface ReasoningStreamChunk extends StreamChunkBase {
+    type: 'output.reasoning';
+    content?: string;
+    summary?: string;
 }
 
-export interface WorkItemToolCallDelta {
-    type: 'toolCall.delta';
-    id: string;
-    argumentsDelta: string;
+export interface TextStreamChunk extends StreamChunkBase {
+    type: 'output.text';
+    content?: string;
 }
 
-// Stream events - Added events with minimal properties
-export interface WorkItemReasoningAdded {
-    type: 'reasoning.added';
-    id: string;
+export interface ToolCallStreamChunk extends StreamChunkBase {
+    type: 'output.toolCall';
+    callId?: string;
+    name?: string;
+    arguments?: string;
 }
 
-export interface WorkItemTextAdded {
-    type: 'text.added';
-    id: string;
-}
-
-export interface WorkItemToolCallAdded {
-    type: 'toolCall.added';
-    id: string;
-    callId: string;
-    name: string;
-}
-
-// Stream events - Done events
-export interface WorkItemReasoningDone {
-    type: 'reasoning.done';
-    id: string;
-}
-
-export interface WorkItemTextDone {
-    type: 'text.done';
-    id: string;
-}
-
-export interface WorkItemToolCallDone {
-    type: 'toolCall.done';
-    id: string;
-}
-
-// Unified stream event type
-export type WorkItemStreamEvent =
-    | WorkItemReasoningAdded
-    | WorkItemTextAdded
-    | WorkItemToolCallAdded
-    | WorkItemReasoningDelta
-    | WorkItemTextDelta
-    | WorkItemToolCallDelta
-    | WorkItemReasoningDone
-    | WorkItemTextDone
-    | WorkItemToolCallDone;
+export type StreamChunk =
+    | ReasoningStreamChunk
+    | TextStreamChunk
+    | ToolCallStreamChunk;

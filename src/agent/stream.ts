@@ -1,130 +1,99 @@
-import type {AgentWorkItem, WorkItemStreamEvent, AgentWorkItemOutputBase} from './loop/interface.js';
+import {assertNever} from '../utils/error.js';
+import type {AgentWorkItem, StreamChunk, AgentWorkItemOutputBase} from './loop/interface.js';
 
 type UpdateItem = (items: AgentWorkItem[]) => AgentWorkItem[];
 
 type OutputItem = Extract<AgentWorkItem, AgentWorkItemOutputBase>;
 
-type OutputItemType = OutputItem['type'];
-
-interface ItemMatch<T extends OutputItemType> {
-    id: string;
-    type: T;
+function findItemIndex(items: AgentWorkItem[], id: string): number {
+    return items.findIndex(i => 'id' in i && i.id === id);
 }
 
-type ItemOf<T extends OutputItemType> = Extract<OutputItem, {type: T}>;
-
-type Update<T extends OutputItemType> = (item: ItemOf<T>) => ItemOf<T>;
-
-function updateItemAt<T extends OutputItemType>(items: AgentWorkItem[], match: ItemMatch<T>, updater: Update<T>) {
-    const index = items.findIndex(i => i.type === match.type && i.id === match.id);
-    if (index === -1) {
-        return items;
+function createItemFromChunk(chunk: StreamChunk): AgentWorkItem {
+    switch (chunk.type) {
+        case 'output.reasoning':
+            return {
+                type: 'output.reasoning',
+                id: chunk.id,
+                status: chunk.status,
+                content: chunk.content ?? '',
+                summary: chunk.summary ?? '',
+            };
+        case 'output.text':
+            return {
+                type: 'output.text',
+                id: chunk.id,
+                status: chunk.status,
+                content: chunk.content ?? '',
+            };
+        case 'output.toolCall':
+            return {
+                type: 'output.toolCall',
+                id: chunk.id,
+                status: chunk.status,
+                callId: chunk.callId ?? '',
+                name: chunk.name ?? '',
+                arguments: chunk.arguments ?? '',
+            };
+        default:
+            assertNever<{type: string}>(chunk, c => `Unknown chunk type: ${c.type}`);
     }
-    const item = items[index] as ItemOf<T>;
-    if (item.type !== match.type) {
-        return items;
-    }
-    return [
-        ...items.slice(0, index),
-        updater(item),
-        ...items.slice(index + 1),
-    ];
 }
 
-export async function* toItemUpdateStream(response: AsyncIterable<WorkItemStreamEvent>): AsyncGenerator<UpdateItem> {
-    for await (const event of response) {
-        // Handle added events - create new items
-        if (event.type === 'reasoning.added') {
-            yield (items: AgentWorkItem[]) => [
-                ...items,
-                {
-                    type: 'output.reasoning',
-                    id: event.id,
-                    status: 'open',
-                    content: '',
-                    summary: '',
-                },
-            ];
-        }
-        else if (event.type === 'text.added') {
-            yield (items: AgentWorkItem[]) => [
-                ...items,
-                {
-                    type: 'output.text',
-                    id: event.id,
-                    status: 'open',
-                    content: '',
-                },
-            ];
-        }
-        else if (event.type === 'toolCall.added') {
-            yield (items: AgentWorkItem[]) => [
-                ...items,
-                {
-                    type: 'output.toolCall',
-                    id: event.id,
-                    status: 'open',
-                    callId: event.callId,
-                    name: event.name,
-                    arguments: '',
-                },
-            ];
-        }
-        // Handle delta events - update items
-        else if (event.type === 'reasoning.delta') {
-            yield (items: AgentWorkItem[]) =>
-                updateItemAt(
-                    items,
-                    {id: event.id, type: 'output.reasoning'},
-                    item => {
-                        return {
-                            ...item,
-                            content: item.content + (event.contentDelta || ''),
-                            summary: item.summary + (event.summaryDelta || ''),
-                        };
-                    }
-                );
-        }
-        else if (event.type === 'text.delta') {
-            yield (items: AgentWorkItem[]) =>
-                updateItemAt(
-                    items,
-                    {id: event.id, type: 'output.text'},
-                    item => ({...item, content: item.content + event.contentDelta})
-                );
-        }
-        else if (event.type === 'toolCall.delta') {
-            yield (items: AgentWorkItem[]) =>
-                updateItemAt(
-                    items,
-                    {id: event.id, type: 'output.toolCall'},
-                    item => ({...item, arguments: item.arguments + event.argumentsDelta})
-                );
-        }
-        // Handle done events - mark as completed
-        else if (event.type === 'reasoning.done') {
-            yield (items: AgentWorkItem[]) =>
-                updateItemAt(
-                    items,
-                    {id: event.id, type: 'output.reasoning'},
-                    item => ({...item, status: 'completed'})
-                );
-        }
-        else if (event.type === 'text.done') {
-            yield (items: AgentWorkItem[]) =>
-                updateItemAt(
-                    items,
-                    {id: event.id, type: 'output.text'},
-                    item => ({...item, status: 'completed'})
-                );
-        }
-        else if (event.type === 'toolCall.done') {
-            yield (items: AgentWorkItem[]) =>
-                updateItemAt(
-                    items,
-                    {id: event.id, type: 'output.toolCall'},
-                    item => ({...item, status: 'completed'})
-                );
-        }
+function mergeChunkIntoItem(item: OutputItem, chunk: StreamChunk): OutputItem {
+    switch (chunk.type) {
+        case 'output.reasoning':
+            if (item.type !== 'output.reasoning') {
+                return item;
+            }
+            return {
+                ...item,
+                status: chunk.status,
+                content: item.content + (chunk.content ?? ''),
+                summary: item.summary + (chunk.summary ?? ''),
+            };
+        case 'output.text':
+            if (item.type !== 'output.text') {
+                return item;
+            }
+            return {
+                ...item,
+                status: chunk.status,
+                content: item.content + (chunk.content ?? ''),
+            };
+        case 'output.toolCall':
+            if (item.type !== 'output.toolCall') {
+                return item;
+            }
+            return {
+                ...item,
+                status: chunk.status,
+                callId: chunk.callId ?? item.callId,
+                name: chunk.name ?? item.name,
+                arguments: item.arguments + (chunk.arguments ?? ''),
+            };
+        default:
+            assertNever<{type: string}>(chunk, c => `Unknown chunk type: ${c.type}`);
+    }
+}
+
+export async function* toItemUpdateStream(response: AsyncIterable<StreamChunk>): AsyncGenerator<UpdateItem> {
+    for await (const chunk of response) {
+        yield (items: AgentWorkItem[]) => {
+            const index = findItemIndex(items, chunk.id);
+
+            if (index === -1) {
+                return [...items, createItemFromChunk(chunk)];
+            }
+
+            const existing = items[index];
+            return 'status' in existing
+                ? [
+                    ...items.slice(0, index),
+                    mergeChunkIntoItem(existing, chunk),
+                    ...items.slice(index + 1),
+                ]
+                : items;
+        };
     }
 }
