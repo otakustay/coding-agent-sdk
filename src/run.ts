@@ -1,7 +1,14 @@
 import {AgentLoop} from './agent/loop/index.js';
 import type {AgentWorkItem} from './agent/loop/interface.js';
 import {toItemUpdateStream} from './agent/index.js';
-import {defineReadTool, createReadImplement, defineWriteTool, createWriteImplement} from './agent/tools/index.js';
+import {
+    defineReadTool,
+    createReadImplement,
+    defineWriteTool,
+    createWriteImplement,
+    defineListTool,
+    createListImplement,
+} from './agent/tools/index.js';
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -19,6 +26,10 @@ const writeDefinition = await defineWriteTool();
 const writeImplement = await createWriteImplement();
 agentLoop.registerTool(writeDefinition, writeImplement);
 
+const listDefinition = await defineListTool();
+const listImplement = await createListImplement();
+agentLoop.registerTool(listDefinition, listImplement);
+
 interface LoopState {
     items: AgentWorkItem[];
 }
@@ -27,7 +38,7 @@ const state: LoopState = {
 };
 
 const first = agentLoop.submitUserQuery(
-    '请使用 write 工具将内容 "hello from agent" 写入 /tmp/agent-test.txt 文件'
+    '检查一下我有哪些util函数'
 );
 
 for await (const update of toItemUpdateStream(first)) {

@@ -4,6 +4,6 @@
 
 Always destructure `parameters` argument into local constants, convert all `snake_case` prameter to `camelCase` naming.
 
-Use `error` function from `utils/error.ts` to format error messages in tool results.
+throw `Error` directly in tool implementation function, they'll be caught and correctly format into tool result content.
 
 Use `dedent` for multi-line content, do not concate `\n` manually.

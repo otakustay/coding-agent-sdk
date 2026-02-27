@@ -21,3 +21,18 @@ export function assertNever<T = unknown>(value: never, stringify: (value: T) => 
 export function stringifyError(error: unknown) {
     return error instanceof Error ? error.message : `${error}`;
 }
+
+interface ErrorWithCode extends Error {
+    code: string;
+}
+
+/**
+ * Checks whether an error has a specific `code` property value.
+ *
+ * @param error - The value to check.
+ * @param code - The expected error code.
+ * @returns `true` if `error` is an `Error` instance with the given `code`.
+ */
+export function isErrorWithCode(error: unknown, code: string): error is ErrorWithCode {
+    return error instanceof Error && 'code' in error && error.code === code;
+}
