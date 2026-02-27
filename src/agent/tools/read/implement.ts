@@ -1,4 +1,4 @@
-import {readFile} from 'node:fs/promises';
+import fs from 'node:fs/promises';
 import type {ReadToolParameters} from './definition.js';
 import type {ToolImplementation} from '../interface.js';
 
@@ -8,7 +8,8 @@ const MAX_LINES = 2000;
 
 export async function createReadImplement(): Promise<ToolImplementation<ReadToolParameters>> {
     return async (parameters): Promise<string> => {
-        const content = await readFile(parameters.target_file, 'utf8');
+        const {target_file: targetFile} = parameters;
+        const content = await fs.readFile(targetFile, 'utf8');
         const lines = content.split('\n');
 
         const startLine = parameters.offset ? Math.max(0, parameters.offset - 1) : 0;

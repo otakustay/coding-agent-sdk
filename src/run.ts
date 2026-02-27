@@ -1,7 +1,7 @@
 import {AgentLoop} from './agent/loop/index.js';
 import type {AgentWorkItem} from './agent/loop/interface.js';
 import {toItemUpdateStream} from './agent/index.js';
-import {defineReadTool, createReadImplement} from './agent/tools/index.js';
+import {defineReadTool, createReadImplement, defineWriteTool, createWriteImplement} from './agent/tools/index.js';
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -15,6 +15,10 @@ const readDefinition = await defineReadTool();
 const readImplement = await createReadImplement();
 agentLoop.registerTool(readDefinition, readImplement);
 
+const writeDefinition = await defineWriteTool();
+const writeImplement = await createWriteImplement();
+agentLoop.registerTool(writeDefinition, writeImplement);
+
 interface LoopState {
     items: AgentWorkItem[];
 }
@@ -23,7 +27,7 @@ const state: LoopState = {
 };
 
 const first = agentLoop.submitUserQuery(
-    '请使用 read 工具读取 /Users/otakustay/Develop/coding-agent-sdk/package.json 文件'
+    '请使用 write 工具将内容 "hello from agent" 写入 /tmp/agent-test.txt 文件'
 );
 
 for await (const update of toItemUpdateStream(first)) {

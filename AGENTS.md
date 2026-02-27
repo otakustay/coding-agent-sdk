@@ -1,0 +1,26 @@
+## Coding Style
+
+Always use default import for NodeJS built-in modules:
+
+```ts
+import fs from 'node:fs/promises';
+```
+
+## Validation
+
+Run validation after completing tasks unless the task is trivial and certain.
+
+### Commands
+
+Run these commands **in parallel**:
+
+- npm run lint
+- npm run type-check
+
+### When to Run
+
+On code modification milestones, use it frequently to ensure code correctness on every phase of task.
+
+### Exceptions
+
+Skip validation only for trivial changes (e.g., typo fixes, comment updates) where correctness is obvious.
