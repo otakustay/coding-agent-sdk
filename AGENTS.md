@@ -1,9 +1,10 @@
 ## Coding Style
 
-Always use default import for NodeJS built-in modules:
+Always use default import for NodeJS built-in modules, except `existsSync`:
 
 ```ts
 import fs from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 ```
 
 ## Validation

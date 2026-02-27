@@ -8,6 +8,8 @@ import {
     createWriteImplement,
     defineListTool,
     createListImplement,
+    defineEditTool,
+    createEditImplement,
 } from './agent/tools/index.js';
 
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -30,6 +32,10 @@ const listDefinition = await defineListTool();
 const listImplement = await createListImplement();
 agentLoop.registerTool(listDefinition, listImplement);
 
+const editDefinition = await defineEditTool();
+const editImplement = await createEditImplement();
+agentLoop.registerTool(editDefinition, editImplement);
+
 interface LoopState {
     items: AgentWorkItem[];
 }
@@ -38,7 +44,7 @@ const state: LoopState = {
 };
 
 const first = agentLoop.submitUserQuery(
-    '检查一下我有哪些util函数'
+    '用edit工具更新一下/tmp/agent-test.txt，把agent改成oniichan'
 );
 
 for await (const update of toItemUpdateStream(first)) {

@@ -5,3 +5,5 @@ export {defineWriteTool, createWriteImplement} from './write/index.js';
 export type {WriteToolParameters} from './write/index.js';
 export {defineListTool, createListImplement} from './list/index.js';
 export type {ListToolParameters} from './list/index.js';
+export {defineEditTool, createEditImplement} from './edit/index.js';
+export type {EditToolParameters} from './edit/index.js';
