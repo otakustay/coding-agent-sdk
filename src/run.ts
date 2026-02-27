@@ -10,6 +10,8 @@ import {
     createListImplement,
     defineEditTool,
     createEditImplement,
+    defineBashTool,
+    createBashImplement,
 } from './agent/tools/index.js';
 
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -36,6 +38,10 @@ const editDefinition = await defineEditTool();
 const editImplement = await createEditImplement();
 agentLoop.registerTool(editDefinition, editImplement);
 
+const bashDefinition = await defineBashTool();
+const bashImplement = await createBashImplement();
+agentLoop.registerTool(bashDefinition, bashImplement);
+
 interface LoopState {
     items: AgentWorkItem[];
 }
@@ -44,7 +50,7 @@ const state: LoopState = {
 };
 
 const first = agentLoop.submitUserQuery(
-    '用edit工具更新一下/tmp/agent-test.txt，把agent改成oniichan'
+    '用jq处理package.json找到开发依赖并告诉我有哪些，文件很大不要直接读取，必须用jq命令'
 );
 
 for await (const update of toItemUpdateStream(first)) {

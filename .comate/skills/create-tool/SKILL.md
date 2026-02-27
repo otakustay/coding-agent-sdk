@@ -108,17 +108,23 @@ export {define{ToolName}Tool, create{ToolName}Implement} from './{toolName}/inde
 export type {{ToolName}ToolParameters} from './{toolName}/index.js';
 ```
 
-### 6. Register with AgentLoop
+### 6. Register in src/run.ts
+
+Register the new tool in `src/run.ts` following the same pattern as existing tools:
 
 ```typescript
-import {AgentLoop} from './agent/loop/index.js';
-import {define{ToolName}Tool, create{ToolName}Implement} from './agent/tools/index.js';
+import {
+    // ... existing imports ...
+    define{ToolName}Tool,
+    create{ToolName}Implement,
+} from './agent/tools/index.js';
 
-const loop = new AgentLoop(apiKey, model);
-const definition = await define{ToolName}Tool();
-const implement = await create{ToolName}Implement();
-loop.registerTool(definition, implement);
+const {toolName}Definition = await define{ToolName}Tool();
+const {toolName}Implement = await create{ToolName}Implement();
+agentLoop.registerTool({toolName}Definition, {toolName}Implement);
 ```
+
+This step is **required** — the tool is not available to the agent until it is registered here.
 
 ## Example: read Tool
 
