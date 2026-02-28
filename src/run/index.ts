@@ -1,6 +1,5 @@
-import {AgentLoop} from './agent/loop/index.js';
-import type {AgentWorkItem} from './agent/loop/interface.js';
-import {toItemUpdateStream} from './agent/index.js';
+import {AgentLoop} from '../agent/loop/index.js';
+import {renderAgentLoop} from './render.js';
 import {
     defineReadTool,
     createReadImplement,
@@ -12,7 +11,7 @@ import {
     createEditImplement,
     defineBashTool,
     createBashImplement,
-} from './agent/tools/index.js';
+} from '../agent/tools/index.js';
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -42,18 +41,8 @@ const bashDefinition = await defineBashTool();
 const bashImplement = await createBashImplement();
 agentLoop.registerTool(bashDefinition, bashImplement);
 
-interface LoopState {
-    items: AgentWorkItem[];
-}
-const state: LoopState = {
-    items: [],
-};
-
-const first = agentLoop.submitUserQuery(
-    '用jq处理package.json找到开发依赖并告诉我有哪些，文件很大不要直接读取，必须用jq命令'
+const stream = agentLoop.submitUserQuery(
+    '搜索下代码库中"bash"字样，分析下相关的逻辑'
 );
 
-for await (const update of toItemUpdateStream(first)) {
-    state.items = update(state.items);
-    console.log('Chunk:', state.items);
-}
+await renderAgentLoop(stream);

@@ -11,7 +11,9 @@
     "skipLibCheck": true,
     "noEmit": true,
     "declaration": false,
-    "exactOptionalPropertyTypes": true
+    "exactOptionalPropertyTypes": true,
+    "jsx": "react-jsx",
+    "jsxImportSource": "react"
   },
   "include": ["src", "*.ts"]
 }
