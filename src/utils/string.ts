@@ -12,18 +12,17 @@ export function truncateLine(line: string, maxCharacters: number): string {
 export function truncateText(text: string, options: TruncateTextOptions = {}): string {
     const {maxLines, maxCharactersPerLine, maxTotalCharacters, onTruncate} = options;
 
-    let lines = text.split('\n');
+    const lines = text.split('\n');
+    const perLineTruncated = typeof maxCharactersPerLine === 'number'
+        ? lines.map(line => truncateLine(line, maxCharactersPerLine))
+        : lines;
 
-    if (maxCharactersPerLine !== undefined) {
-        lines = lines.map(line => truncateLine(line, maxCharactersPerLine));
-    }
-
-    if (maxLines !== undefined && lines.length > maxLines) {
-        const truncated = lines.slice(-maxLines).join('\n');
+    if (maxLines !== undefined && perLineTruncated.length > maxLines) {
+        const truncated = perLineTruncated.slice(-maxLines).join('\n');
         return onTruncate ? onTruncate(truncated) : '...truncated...\n' + truncated;
     }
 
-    const joined = lines.join('\n');
+    const joined = perLineTruncated.join('\n');
 
     if (maxTotalCharacters !== undefined && joined.length > maxTotalCharacters) {
         const truncated = joined.slice(0, maxTotalCharacters);

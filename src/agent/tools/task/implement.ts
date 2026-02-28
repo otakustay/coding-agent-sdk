@@ -1,12 +1,9 @@
 import type {TaskToolParameters, AgentConfig} from './definition.js';
 import type {ToolImplementation} from '../interface.js';
 import {truncateText} from '../../../utils/string.js';
+import {createIdGenerator} from '../../../utils/id.js';
 
-let agentIdCounter = 0;
-
-function generateAgentId(): string {
-    return `agent_${++agentIdCounter}`;
-}
+const generateAgentId = createIdGenerator('agent_');
 
 export async function createTaskImplement(agents: AgentConfig[]): Promise<ToolImplementation<TaskToolParameters>> {
     return async (parameters, context): Promise<string> => {

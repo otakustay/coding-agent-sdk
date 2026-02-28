@@ -11,7 +11,7 @@ import type {
     StreamChunk,
 } from './interface.js';
 import {transformWorkItemsToInput} from './transform.js';
-import type {ToolDefinition, ToolImplementation} from '../tools/interface.js';
+import type {ToolDefinition, ToolImplementation, ProcessRecord} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
 import {discard} from '../../utils/iterable.js';
 import {error} from './utils/prompt.js';
@@ -40,6 +40,7 @@ export class AgentLoop {
     private items: AgentWorkItem[] = [];
     private tools = new Map<string, RegisteredTool>();
     private subtasks = new Map<string, AgentLoop>();
+    private processes = new Map<string, ProcessRecord>();
 
     constructor(apiKeyOrClient: string | OpenRouter, model: string) {
         this.client = typeof apiKeyOrClient === 'string'
@@ -304,6 +305,7 @@ export class AgentLoop {
             respondingModel: this.model,
             workingAgentLoop: this,
             subtasks: this.subtasks,
+            processes: this.processes,
         };
     }
     private async executeToolCall(toolCall: AgentWorkItemToolCallOutput): Promise<AgentWorkItemToolResultInput> {

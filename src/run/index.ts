@@ -17,6 +17,8 @@ import {
     createGlobImplement,
     defineTaskTool,
     createTaskImplement,
+    defineTaskOutputTool,
+    createTaskOutputImplement,
 } from '../agent/tools/index.js';
 import type {AgentConfig} from '../agent/tools/index.js';
 
@@ -90,8 +92,12 @@ const taskDefinition = await defineTaskTool(agentTypes);
 const taskImplement = await createTaskImplement(agentTypes);
 agentLoop.registerTool(taskDefinition, taskImplement);
 
+const taskOutputDefinition = await defineTaskOutputTool();
+const taskOutputImplement = await createTaskOutputImplement();
+agentLoop.registerTool(taskOutputDefinition, taskOutputImplement);
+
 const stream = agentLoop.submitUserQuery(
-    '直接用Explore分析一下bash相关的代码，总结给我，不要自己去读文件'
+    '启动2个background任务，每个任务每隔3s随机输出一串东西（独占一行），随后你每隔10s分别读取2个任务的最后输出并告诉我'
 );
 
 await renderAgentLoop(stream);

@@ -2,13 +2,7 @@ import {Box, Text} from 'ink';
 import type {AgentWorkItem} from '../../agent/loop/interface.js';
 
 function ArgumentBlock({argKey, argValue}: {argKey: string, argValue: unknown}) {
-    let valueDisplay: string;
-    if (typeof argValue === 'string') {
-        valueDisplay = argValue;
-    }
-    else {
-        valueDisplay = JSON.stringify(argValue, null, 2);
-    }
+    const valueDisplay = typeof argValue === 'string' ? argValue : JSON.stringify(argValue, null, 2);
     return (
         <Box flexDirection="column" marginLeft={2}>
             <Text dimColor>{argKey}</Text>
@@ -19,22 +13,26 @@ function ArgumentBlock({argKey, argValue}: {argKey: string, argValue: unknown}) 
     );
 }
 
-export function ToolCallOutput({item}: {item: Extract<AgentWorkItem, {type: 'output.toolCall'}>}) {
-    let parsedArgs: Record<string, unknown> | null = null;
-    let rawArgsDisplay: string | null = null;
+interface ParsedArguments {
+    parsedArgs: Record<string, unknown> | null;
+    rawArgsDisplay: string | null;
+}
+
+function parseArguments(args: string): ParsedArguments {
     try {
-        const parsed = JSON.parse(item.arguments) as unknown;
+        const parsed = JSON.parse(args) as unknown;
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-            parsedArgs = parsed as Record<string, unknown>;
+            return {parsedArgs: parsed as Record<string, unknown>, rawArgsDisplay: null};
         }
-        else {
-            rawArgsDisplay = JSON.stringify(parsed, null, 2);
-        }
+        return {parsedArgs: null, rawArgsDisplay: JSON.stringify(parsed, null, 2)};
     }
     catch {
-        // raw string while streaming incomplete JSON
-        rawArgsDisplay = item.arguments || null;
+        return {parsedArgs: null, rawArgsDisplay: args || null};
     }
+}
+
+export function ToolCallOutput({item}: {item: Extract<AgentWorkItem, {type: 'output.toolCall'}>}) {
+    const {parsedArgs, rawArgsDisplay} = parseArguments(item.arguments);
     return (
         <Box flexDirection="column">
             <Box>

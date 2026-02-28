@@ -17,3 +17,5 @@ export {defineTodoWriteTool, createTodoWriteImplement} from './todo/index.js';
 export type {TodoToolParameters} from './todo/index.js';
 export {defineTaskTool, createTaskImplement} from './task/index.js';
 export type {TaskToolParameters, AgentConfig} from './task/index.js';
+export {defineTaskOutputTool, createTaskOutputImplement} from './taskOutput/index.js';
+export type {TaskOutputToolParameters} from './taskOutput/index.js';
