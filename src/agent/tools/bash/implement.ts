@@ -1,7 +1,8 @@
 import {execa} from 'execa';
 import dedent from 'dedent';
-import type {BashToolParameters} from './definition.js';
+import {truncateText} from '../../../utils/string.js';
 import type {ToolImplementation} from '../interface.js';
+import type {BashToolParameters} from './definition.js';
 
 const MAX_LINE_LENGTH = 2000;
 const MAX_OUTPUT = 30_000;
@@ -20,12 +21,14 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
             `;
         }
 
-        const lines = all.split('\n').map(v => v.length > MAX_LINE_LENGTH ? v.slice(0, MAX_LINE_LENGTH) + '...' : v);
-        const truncatedByLine = lines.join('\n');
-
-        const output = truncatedByLine.length > MAX_OUTPUT
-            ? truncatedByLine.slice(0, MAX_OUTPUT) + `\n(Output truncated at ${MAX_OUTPUT} characters.)`
-            : truncatedByLine;
+        const output = truncateText(
+            all,
+            {
+                maxCharactersPerLine: MAX_LINE_LENGTH,
+                maxTotalCharacters: MAX_OUTPUT,
+                onTruncate: truncated => truncated + `\n(Output truncated at ${truncated.length} characters.)`,
+            }
+        );
 
         return dedent`
             Command executed successfully.

@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
-import type {ReadToolParameters} from './definition.js';
+import {truncateLine} from '../../../utils/string.js';
 import type {ToolImplementation} from '../interface.js';
+import type {ReadToolParameters} from './definition.js';
 
 const MAX_LINE_LENGTH = 2000;
 
@@ -20,9 +21,7 @@ export async function createReadImplement(): Promise<ToolImplementation<ReadTool
         // Format with line numbers (cat -n style) and truncate long lines
         const formatLine = (line: string, index: number): string => {
             const lineNumber = startLine + index + 1;
-            const truncatedLine = line.length > MAX_LINE_LENGTH
-                ? line.slice(0, MAX_LINE_LENGTH) + '...'
-                : line;
+            const truncatedLine = truncateLine(line, MAX_LINE_LENGTH);
             return `${lineNumber.toString().padStart(6, ' ')}\t${truncatedLine}`;
         };
         const output = slicedLines.map(formatLine);

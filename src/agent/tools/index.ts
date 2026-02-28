@@ -15,3 +15,5 @@ export {defineGlobTool, createGlobImplement} from './glob/index.js';
 export type {GlobToolParameters} from './glob/index.js';
 export {defineTodoWriteTool, createTodoWriteImplement} from './todo/index.js';
 export type {TodoToolParameters} from './todo/index.js';
+export {defineTaskTool, createTaskImplement} from './task/index.js';
+export type {TaskToolParameters, AgentConfig} from './task/index.js';

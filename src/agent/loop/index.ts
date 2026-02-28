@@ -1,4 +1,7 @@
 /* oxlint-disable max-lines */
+import fs from 'node:fs/promises';
+import crypto from 'node:crypto';
+import path from 'node:path';
 import {OpenRouter} from '@openrouter/sdk';
 import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
 import type {
@@ -10,6 +13,7 @@ import type {
 import {transformWorkItemsToInput} from './transform.js';
 import type {ToolDefinition, ToolImplementation} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
+import {discard} from '../../utils/iterable.js';
 import {error} from './utils/prompt.js';
 
 interface RegisteredTool {
@@ -35,10 +39,31 @@ export class AgentLoop {
     private model: string;
     private items: AgentWorkItem[] = [];
     private tools = new Map<string, RegisteredTool>();
+    private subtasks = new Map<string, AgentLoop>();
 
-    constructor(apiKey: string, model: string) {
-        this.client = new OpenRouter({apiKey});
+    constructor(apiKeyOrClient: string | OpenRouter, model: string) {
+        this.client = typeof apiKeyOrClient === 'string'
+            ? new OpenRouter({apiKey: apiKeyOrClient})
+            : apiKeyOrClient;
         this.model = model;
+    }
+
+    fork(): AgentLoop {
+        return new AgentLoop(this.client, this.model);
+    }
+
+    setSystemPrompt(prompt: string): void {
+        const existingIndex = this.items.findIndex(item => item.type === 'input.system');
+        if (existingIndex >= 0) {
+            this.items.splice(existingIndex, 1);
+        }
+        this.items.unshift({type: 'input.system', content: prompt});
+    }
+
+    async submitUserQueryForFinalMessageText(userQuery: string): Promise<string> {
+        await discard(this.submitUserQuery(userQuery));
+        const lastTextItem = this.items.findLast(item => item.type === 'output.text');
+        return lastTextItem?.type === 'output.text' ? lastTextItem.content : '';
     }
 
     registerTool(definition: ToolDefinition, implement: ToolImplementation<any>): void {
@@ -78,6 +103,13 @@ export class AgentLoop {
                 };
             }
         }
+
+        const dataDir = path.join(process.cwd(), 'data');
+        await fs.mkdir(dataDir, {recursive: true});
+        await fs.writeFile(
+            path.join(dataDir, `${crypto.randomUUID()}.json`),
+            JSON.stringify(this.items, null, 2)
+        );
     }
 
     private buildToolDefinitions(): OpenResponsesRequestToolFunction[] {
@@ -267,7 +299,12 @@ export class AgentLoop {
     }
 
     private createToolCallContext() {
-        return {historyItems: [...this.items], respondingModel: this.model};
+        return {
+            historyItems: [...this.items],
+            respondingModel: this.model,
+            workingAgentLoop: this,
+            subtasks: this.subtasks,
+        };
     }
     private async executeToolCall(toolCall: AgentWorkItemToolCallOutput): Promise<AgentWorkItemToolResultInput> {
         const registered = this.tools.get(toolCall.name);

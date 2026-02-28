@@ -15,7 +15,40 @@ import {
     createGrepImplement,
     defineGlobTool,
     createGlobImplement,
+    defineTaskTool,
+    createTaskImplement,
 } from '../agent/tools/index.js';
+import type {AgentConfig} from '../agent/tools/index.js';
+
+const agentTypes: AgentConfig[] = [
+    {
+        name: 'Explore',
+        description:
+            'Fast agent specialized for exploring codebases. Use this when you need to quickly find files with natural language query, search code of a certain function module with keywords, or answer questions about the codebase (eg. "how do API endpoints work?").',
+        setup: async agentLoop => {
+            agentLoop.setSystemPrompt(
+                'You are an Explore agent specialized for fast codebase exploration. Focus on finding files, searching code, and answering questions about how the codebase works. Be concise and efficient in your exploration.'
+            );
+
+            // Register tools (excluding task to prevent nesting)
+            const readDefinition = await defineReadTool();
+            const readImplement = await createReadImplement();
+            agentLoop.registerTool(readDefinition, readImplement);
+
+            const listDefinition = await defineListTool();
+            const listImplement = await createListImplement();
+            agentLoop.registerTool(listDefinition, listImplement);
+
+            const globDefinition = await defineGlobTool();
+            const globImplement = await createGlobImplement();
+            agentLoop.registerTool(globDefinition, globImplement);
+
+            const grepDefinition = await defineGrepTool();
+            const grepImplement = await createGrepImplement();
+            agentLoop.registerTool(grepDefinition, grepImplement);
+        },
+    },
+];
 
 const apiKey = process.env.OPENROUTER_API_KEY;
 
@@ -53,8 +86,12 @@ const globDefinition = await defineGlobTool();
 const globImplement = await createGlobImplement();
 agentLoop.registerTool(globDefinition, globImplement);
 
+const taskDefinition = await defineTaskTool(agentTypes);
+const taskImplement = await createTaskImplement(agentTypes);
+agentLoop.registerTool(taskDefinition, taskImplement);
+
 const stream = agentLoop.submitUserQuery(
-    '搜索下代码库中"bash"字样，分析下相关的逻辑'
+    '直接用Explore分析一下bash相关的代码，总结给我，不要自己去读文件'
 );
 
 await renderAgentLoop(stream);
