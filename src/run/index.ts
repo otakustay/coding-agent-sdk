@@ -13,6 +13,8 @@ import {
     createBashImplement,
     defineGrepTool,
     createGrepImplement,
+    defineGlobTool,
+    createGlobImplement,
 } from '../agent/tools/index.js';
 
 const apiKey = process.env.OPENROUTER_API_KEY;
@@ -46,6 +48,10 @@ agentLoop.registerTool(bashDefinition, bashImplement);
 const grepDefinition = await defineGrepTool();
 const grepImplement = await createGrepImplement();
 agentLoop.registerTool(grepDefinition, grepImplement);
+
+const globDefinition = await defineGlobTool();
+const globImplement = await createGlobImplement();
+agentLoop.registerTool(globDefinition, globImplement);
 
 const stream = agentLoop.submitUserQuery(
     '搜索下代码库中"bash"字样，分析下相关的逻辑'

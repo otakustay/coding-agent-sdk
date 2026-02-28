@@ -11,3 +11,5 @@ export {defineBashTool, createBashImplement} from './bash/index.js';
 export type {BashToolParameters} from './bash/index.js';
 export {defineGrepTool, createGrepImplement} from './grep/index.js';
 export type {GrepToolParameters} from './grep/index.js';
+export {defineGlobTool, createGlobImplement} from './glob/index.js';
+export type {GlobToolParameters} from './glob/index.js';
