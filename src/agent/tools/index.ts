@@ -9,3 +9,5 @@ export {defineEditTool, createEditImplement} from './edit/index.js';
 export type {EditToolParameters} from './edit/index.js';
 export {defineBashTool, createBashImplement} from './bash/index.js';
 export type {BashToolParameters} from './bash/index.js';
+export {defineGrepTool, createGrepImplement} from './grep/index.js';
+export type {GrepToolParameters} from './grep/index.js';

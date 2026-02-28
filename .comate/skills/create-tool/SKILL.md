@@ -1,6 +1,11 @@
 ---
 name: create-tool
-description: Create new tools for the coding-agent-sdk agent. Use when adding a new capability to the agent that requires external actions (file operations, command execution, API calls, etc.). Tools follow a standard structure with definition (Zod schema), implementation (async function), and registration (AgentLoop).
+description: >-
+  Create new tools for the coding-agent-sdk agent. Use when:
+  (1) Implementing a named tool (e.g. "implement a grep tool", "实现 grep 工具", "新增一个 bash 工具");
+  (2) Creating a tool based on a spec or doc (e.g. "按 tool_doc.md 里的定义实现工具", "参考文档实现工具");
+  (3) Adding any new tool capability that requires command execution, file I/O, API calls, or other external actions.
+  Tools follow a standard structure: definition (Zod schema in definition.ts), implementation (async function in implement.ts), barrel export (index.ts), and registration in src/run.ts.
 ---
 
 # Create Tool
