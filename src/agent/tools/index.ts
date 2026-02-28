@@ -13,3 +13,5 @@ export {defineGrepTool, createGrepImplement} from './grep/index.js';
 export type {GrepToolParameters} from './grep/index.js';
 export {defineGlobTool, createGlobImplement} from './glob/index.js';
 export type {GlobToolParameters} from './glob/index.js';
+export {defineTodoWriteTool, createTodoWriteImplement} from './todo/index.js';
+export type {TodoToolParameters} from './todo/index.js';

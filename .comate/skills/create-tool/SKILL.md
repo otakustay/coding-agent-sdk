@@ -5,7 +5,7 @@ description: >-
   (1) Implementing a named tool (e.g. "implement a grep tool", "实现 grep 工具", "新增一个 bash 工具");
   (2) Creating a tool based on a spec or doc (e.g. "按 tool_doc.md 里的定义实现工具", "参考文档实现工具");
   (3) Adding any new tool capability that requires command execution, file I/O, API calls, or other external actions.
-  Tools follow a standard structure: definition (Zod schema in definition.ts), implementation (async function in implement.ts), barrel export (index.ts), and registration in src/run.ts.
+  Tools follow a standard structure: definition (Zod schema in definition.ts), implementation (async function in implement.ts), barrel export (index.ts), and registration in src/run/index.ts.
 ---
 
 # Create Tool
@@ -113,16 +113,16 @@ export {define{ToolName}Tool, create{ToolName}Implement} from './{toolName}/inde
 export type {{ToolName}ToolParameters} from './{toolName}/index.js';
 ```
 
-### 6. Register in src/run.ts
+### 6. Register in src/run/index.ts
 
-Register the new tool in `src/run.ts` following the same pattern as existing tools:
+Register the new tool in `src/run/index.ts` following the same pattern as existing tools:
 
 ```typescript
 import {
     // ... existing imports ...
     define{ToolName}Tool,
     create{ToolName}Implement,
-} from './agent/tools/index.js';
+} from '../agent/tools/index.js';
 
 const {toolName}Definition = await define{ToolName}Tool();
 const {toolName}Implement = await create{ToolName}Implement();
