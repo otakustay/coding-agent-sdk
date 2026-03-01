@@ -54,7 +54,7 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
                 Command is running in the background.
                 Task ID: ${taskId}
 
-                Use the taskOutput tool with task ID to read the output at any time.
+                Use the \`taskOutput\` tool with task ID to read the output at any time.
             `;
         }
 

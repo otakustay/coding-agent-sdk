@@ -1,7 +1,4 @@
 /* oxlint-disable max-lines */
-import fs from 'node:fs/promises';
-import crypto from 'node:crypto';
-import path from 'node:path';
 import {OpenRouter} from '@openrouter/sdk';
 import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
 import type {
@@ -39,8 +36,9 @@ export class AgentLoop {
     private model: string;
     private items: AgentWorkItem[] = [];
     private tools = new Map<string, RegisteredTool>();
-    private subtasks = new Map<string, AgentLoop>();
+    private subagents = new Map<string, AgentLoop>();
     private processes = new Map<string, ProcessRecord>();
+    private running = false;
 
     constructor(apiKeyOrClient: string | OpenRouter, model: string) {
         this.client = typeof apiKeyOrClient === 'string'
@@ -63,6 +61,14 @@ export class AgentLoop {
 
     async submitUserQueryForFinalMessageText(userQuery: string): Promise<string> {
         await discard(this.submitUserQuery(userQuery));
+        return this.getLastMessageText();
+    }
+
+    isRunning(): boolean {
+        return this.running;
+    }
+
+    getLastMessageText(): string {
         const lastTextItem = this.items.findLast(item => item.type === 'output.text');
         return lastTextItem?.type === 'output.text' ? lastTextItem.content : '';
     }
@@ -79,38 +85,37 @@ export class AgentLoop {
      */
     async *submitUserQuery(userQuery: string): AsyncGenerator<StreamChunk, void, undefined> {
         this.items.push({type: 'input.user', content: [{type: 'text', content: userQuery}]});
+        this.running = true;
 
-        while (true) {
-            const startIndex = this.items.length;
+        try {
+            while (true) {
+                const startIndex = this.items.length;
 
-            yield* this.streamModelResponse();
+                yield* this.streamModelResponse();
 
-            const newToolCalls = this.items.slice(startIndex).filter(isExecutableToolCall);
+                const newToolCalls = this.items.slice(startIndex).filter(isExecutableToolCall);
 
-            if (newToolCalls.length === 0) {
-                break;
-            }
+                if (newToolCalls.length === 0) {
+                    break;
+                }
 
-            const results = await this.executeToolCalls(newToolCalls);
+                const results = await this.executeToolCalls(newToolCalls);
 
-            for (const result of results) {
-                this.items.push(result);
-                yield {
-                    type: 'input.toolResult',
-                    id: `toolResult:${result.callId}`,
-                    status: 'completed',
-                    callId: result.callId,
-                    content: result.content,
-                };
+                for (const result of results) {
+                    this.items.push(result);
+                    yield {
+                        type: 'input.toolResult',
+                        id: `toolResult:${result.callId}`,
+                        status: 'completed',
+                        callId: result.callId,
+                        content: result.content,
+                    };
+                }
             }
         }
-
-        const dataDir = path.join(process.cwd(), 'data');
-        await fs.mkdir(dataDir, {recursive: true});
-        await fs.writeFile(
-            path.join(dataDir, `${crypto.randomUUID()}.json`),
-            JSON.stringify(this.items, null, 2)
-        );
+        finally {
+            this.running = false;
+        }
     }
 
     private buildToolDefinitions(): OpenResponsesRequestToolFunction[] {
@@ -304,7 +309,7 @@ export class AgentLoop {
             historyItems: [...this.items],
             respondingModel: this.model,
             workingAgentLoop: this,
-            subtasks: this.subtasks,
+            subagents: this.subagents,
             processes: this.processes,
         };
     }

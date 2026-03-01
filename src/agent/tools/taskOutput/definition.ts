@@ -3,7 +3,9 @@ import type {ToolDefinition} from '../interface.js';
 import dedent from 'dedent';
 
 const taskOutputToolParameters = {
-    task_id: z.string().describe('The task ID of the background bash process to read output from (e.g. bash_12345).'),
+    task_id: z.string().describe(
+        'The task ID of the background process to read output from (e.g. bash_12345 or agent_abc123).'
+    ),
     offset: z.number().optional().describe(
         dedent`
             The line number to start reading from (1-based).
@@ -24,7 +26,7 @@ export async function defineTaskOutputTool(): Promise<ToolDefinition<TaskOutputT
     return {
         name: 'taskOutput',
         description: dedent`
-            Reads the output of a background bash process started with the bash tool.
+            Reads the output of a background process started with the bash or agent tool.
             Returns the process status and output lines.
             Supports pagination via offset and limit parameters.
         `,

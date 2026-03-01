@@ -19,7 +19,7 @@ export type TodoToolParameters = z.infer<typeof todoToolInputSchema>;
 
 export async function defineTodoWriteTool(): Promise<ToolDefinition<TodoToolParameters>> {
     return {
-        name: 'todo_write',
+        name: 'todoWrite',
         description: dedent`
             Use this tool to create and manage a structured task list for your current coding session. This helps track progress, organize complex tasks, and demonstrate thoroughness.
 

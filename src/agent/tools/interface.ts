@@ -12,7 +12,7 @@ export interface ToolExecutionContext {
     historyItems: AgentWorkItem[];
     respondingModel: string;
     workingAgentLoop: AgentLoop;
-    subtasks: Map<string, AgentLoop>;
+    subagents: Map<string, AgentLoop>;
     processes: Map<string, ProcessRecord>;
 }
 

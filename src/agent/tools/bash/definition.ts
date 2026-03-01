@@ -7,7 +7,7 @@ const bashToolParameters = {
         'The shell command to execute from the user\'s current workspace. The command may include chaining and directory changes. Must be non-interactive and complete without user input. Must use valid syntax for the user\'s shell'
     ),
     background: z.boolean().optional().describe(
-        'When true, the command runs in the background without blocking. The tool returns immediately with a task ID. Use the taskOutput tool with that task ID to read the output at any time. Use this for long-running commands (e.g., servers, builds, watchers).'
+        'When true, the command runs in the background without blocking. The tool returns immediately with a task ID. Use the `taskOutput` tool with that task ID to read the output at any time. Use this for long-running commands (e.g., servers, builds, watchers).'
     ),
 };
 const bashToolInputSchema = z.object(bashToolParameters);

@@ -1,19 +1,20 @@
-import type {TaskToolParameters, AgentConfig} from './definition.js';
+import type {AgentToolParameters, AgentConfig} from './definition.js';
 import type {ToolImplementation} from '../interface.js';
 import {truncateText} from '../../../utils/string.js';
 import {createIdGenerator} from '../../../utils/id.js';
+import dedent from 'dedent';
 
 const generateAgentId = createIdGenerator('agent_');
 
-export async function createTaskImplement(agents: AgentConfig[]): Promise<ToolImplementation<TaskToolParameters>> {
+export async function createAgentImplement(agents: AgentConfig[]): Promise<ToolImplementation<AgentToolParameters>> {
     return async (parameters, context): Promise<string> => {
-        const {query, agent_type: agentType, resume} = parameters;
-        const {workingAgentLoop, subtasks} = context;
+        const {query, agent_type: agentType, resume, background} = parameters;
+        const {workingAgentLoop, subagents} = context;
 
         if (resume) {
-            const subagent = subtasks.get(resume);
+            const subagent = subagents.get(resume);
             if (!subagent) {
-                const availableIds = [...subtasks.keys()].join(',');
+                const availableIds = [...subagents.keys()].join(',');
                 if (availableIds) {
                     throw new Error(
                         `resume agent_id \`${resume}\` not exist, you may refer to following agent_ids:\`${availableIds}\``
@@ -54,7 +55,18 @@ export async function createTaskImplement(agents: AgentConfig[]): Promise<ToolIm
         const subagent = workingAgentLoop.fork();
 
         await config.setup(subagent);
-        subtasks.set(agentId, subagent);
+        subagents.set(agentId, subagent);
+
+        if (background) {
+            void subagent.submitUserQueryForFinalMessageText(query).catch(() => {});
+
+            return dedent`
+                Task is running in the background.
+                Agent ID: ${agentId}
+
+                Use the \`taskOutput\` tool with agent ID to read the output at any time.
+            `;
+        }
 
         const result = await subagent.submitUserQueryForFinalMessageText(query);
         const truncatedResult = truncateText(
@@ -74,7 +86,7 @@ export async function createTaskImplement(agents: AgentConfig[]): Promise<ToolIm
             '</return>',
             '',
             `You can use agent_id:\`${agentId}\` to resume the agent later if needed for follow-up work.`,
-            'The result returned by the agent is not visible to the user. If you want to show the user the result, you should send a text message back to the user, including all key conclusions and necessary details.',
+            'The result returned by the agent is not visible to the user. If you want to show the user the result, you must send a text message back to the user, including all key conclusions and necessary details.',
         ];
         return segments.join('\n');
     };

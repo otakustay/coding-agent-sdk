@@ -20,7 +20,7 @@ export async function defineEditTool(): Promise<ToolDefinition<EditToolParameter
 
             Usage:
             - Before editing a file, you must ensure you have verified its content, otherwise, an error will be thrown.
-            - When editing text from read_file tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is like: \` 1802→\`. Everything after that \`→\` is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
+            - When editing text from read tool output, ensure you preserve the exact indentation (tabs/spaces) as it appears AFTER the line number prefix. The line number prefix format is like: \` 1802→\`. Everything after that \`→\` is the actual file content to match. Never include any part of the line number prefix in the old_string or new_string.
             - ALWAYS prefer editing existing files in the codebase. NEVER write new files.
             - Only use emojis if the user explicitly requests it. Avoid adding emojis to files unless asked.
             - The edit will FAIL if \`old_string\` is not found in the file with an error "old_string not found in content".

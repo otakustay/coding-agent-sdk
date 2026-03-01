@@ -54,7 +54,7 @@ export async function defineGrepTool(): Promise<ToolDefinition<GrepToolParameter
             - Supports full regex syntax (e.g., "log.*Error", "function\\s+\\w+")
             - Filter files with glob parameter (e.g., "*.js", "**/*.tsx") or type parameter (e.g., "js", "py", "rust")
             - Output modes: "content" shows matching lines, "files_with_matches" shows only file paths (default), "count" shows match counts
-            - Use delegate_subtask tool for open-ended searches requiring multiple rounds
+            - Use agent tool for open-ended searches requiring multiple rounds
             - Pattern syntax: Uses ripgrep (not grep) - literal braces need escaping (use \`interface\\{\\}\` to find \`interface{}\` in Go code)
             - Multiline matching: By default patterns match within single lines only. For cross-line patterns like \`struct \\{[\\s\\S]*?field\`, use \`multiline: true\`
 
@@ -65,10 +65,9 @@ export async function defineGrepTool(): Promise<ToolDefinition<GrepToolParameter
 
             ## When NOT to Use
             Skip \`grep\` for:
-            1. Find code by meaning (use \`codebase_search\`)
-            2. Reading known files (use \`read_file\`)
-            3. Find file by name (use \`glob_path\`)
-            4. Complex searching which need multiple steps (use \`delegate_subtask\` if it exists)
+            1. Reading known files (use \`read\`)
+            2. Find file by name (use \`glob\`)
+            3. Complex searching which need multiple steps (use \`agent\` if it exists)
         `,
         inputSchema: grepToolInputSchema,
     };
