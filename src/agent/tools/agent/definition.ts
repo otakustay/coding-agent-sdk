@@ -1,7 +1,6 @@
-import {z} from 'zod';
 import type {ToolDefinition} from '../interface.js';
 import type {AgentLoop} from '../../loop/index.js';
-import dedent from 'dedent';
+import {loadDefinitionFromYamlRelative} from '../utils.js';
 
 export interface AgentConfig {
     name: string;
@@ -9,51 +8,23 @@ export interface AgentConfig {
     setup: (agentLoop: AgentLoop) => Promise<void>;
 }
 
+export interface AgentToolParameters {
+    description: string;
+    query: string;
+    agent_type: string;
+    resume?: string;
+    background?: boolean;
+}
+
 function buildAgentTypeList(agentTypes: AgentConfig[]): string {
     return agentTypes.map(type => `- ${type.name}: ${type.description}`).join('\n');
 }
 
-const agentToolParameters = {
-    description: z.string().describe('A short (3-5 word) description of the task'),
-    query: z.string().describe('The task for the agent to perform'),
-    agent_type: z.string().describe('The type of specialized agent to use for this task'),
-    resume: z.string().optional().describe(
-        'Optional agent_id to resume from. If provided, the agent will continue from the previous execution transcript.'
-    ),
-    background: z.boolean().optional().describe(
-        'If true, the agent runs in background. Returns immediately with agent_id. Use `taskOutput` tool to read output.'
-    ),
-};
-
-const agentToolInputSchema = z.object(agentToolParameters);
-
-export type AgentToolParameters = z.infer<typeof agentToolInputSchema>;
-
-export function defineAgentTool(agentTypes: AgentConfig[]): ToolDefinition<AgentToolParameters> {
+export async function defineAgentTool(agentTypes: AgentConfig[]): Promise<ToolDefinition> {
     const agentTypeList = buildAgentTypeList(agentTypes);
-
+    const definition = await loadDefinitionFromYamlRelative(import.meta.url);
     return {
-        name: 'agent',
-        description: dedent`
-            Use \`agent\` to launch specialized agents that autonomously handle **complex, multi-step tasks**.
-            Each agent runs independently and returns **one final result message** when finished.
-
-            The \`agent_type\` parameter specifies which type of agent to use. Available types:
-            ${agentTypeList}
-
-            When NOT to use the agent tool:
-            - Simple or single-step tasks
-            - Opening a single known file path, where read or glob is preferable
-
-            Usage notes:
-            - Always include a short description (3-5 words) summarizing what the agent will do
-            - Launch multiple agents concurrently whenever possible, to maximize performance; to do that, use a single message with multiple tool uses
-            - Agents can be resumed using the \`resume\` parameter by passing the agent_id from a previous invocation. When resumed, the agent continues with its full previous context preserved. When NOT resuming, each invocation starts fresh and you should provide a detailed task description with all necessary context.
-            - Provide clear, detailed query so the agent can work autonomously and return exactly the information you need.
-            - Clearly tell the agent whether you expect it to write code or just to do research (search, file reads, web fetches, etc.), since it is not aware of the user's intent
-            - If the agent description mentions that it should be used proactively, then you should try your best to use it without the user having to ask for it first. Use your judgement.
-            - If the user specifies that they want you to run agents "in parallel", you MUST send a message with multiple agent tool use content blocks. For example, if you need to launch both a code-reviewer agent and a test-runner agent in parallel, send a single message with both tool calls.
-        `,
-        inputSchema: agentToolInputSchema,
+        ...definition,
+        description: definition.description.replaceAll('{{agentTypeList}}', agentTypeList),
     };
 }

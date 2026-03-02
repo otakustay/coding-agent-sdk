@@ -129,7 +129,7 @@ const globDefinition = await defineGlobTool();
 const globImplement = await createGlobImplement();
 agentLoop.registerTool(globDefinition, globImplement);
 
-const agentDefinition = defineAgentTool(agentTypes);
+const agentDefinition = await defineAgentTool(agentTypes);
 const agentImplement = await createAgentImplement(agentTypes);
 agentLoop.registerTool(agentDefinition, agentImplement);
 

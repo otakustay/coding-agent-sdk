@@ -1,4 +1,5 @@
 /* oxlint-disable max-lines */
+import {z} from 'zod';
 import {OpenRouter} from '@openrouter/sdk';
 import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
 import type {
@@ -27,7 +28,7 @@ function toToolDefinition({definition}: RegisteredTool): OpenResponsesRequestToo
         type: 'function',
         name: definition.name,
         description: definition.description,
-        parameters: definition.inputSchema.toJSONSchema(),
+        parameters: definition.inputSchema,
     };
 }
 
@@ -324,7 +325,7 @@ export class AgentLoop {
         }
         try {
             const rawParameters = JSON.parse(toolCall.arguments);
-            const parameters = registered.definition.inputSchema.parse(rawParameters);
+            const parameters = z.fromJSONSchema(registered.definition.inputSchema).parse(rawParameters);
             const content = await registered.implement(parameters, this.createToolCallContext());
             return {type: 'input.toolResult', callId: toolCall.callId, content};
         }

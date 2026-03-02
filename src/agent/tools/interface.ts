@@ -1,4 +1,3 @@
-import type {z} from 'zod';
 import type {AgentWorkItem} from '../loop/interface.js';
 import type {AgentLoop} from '../loop/index.js';
 
@@ -16,10 +15,10 @@ export interface ToolExecutionContext {
     processes: Map<string, ProcessRecord>;
 }
 
-export interface ToolDefinition<P = unknown> {
+export interface ToolDefinition {
     name: string;
     description: string;
-    inputSchema: z.ZodType<P>;
+    inputSchema: Record<string, unknown>;
 }
 
 export type ToolImplementation<T = unknown> = (parameters: T, context: ToolExecutionContext) => Promise<string>;
