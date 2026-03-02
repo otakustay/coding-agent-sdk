@@ -1,5 +1,5 @@
 import {AgentLoop} from '../agent/loop/index.js';
-import {renderAgentLoop} from './render.js';
+import {renderInteractiveLoop} from './render.js';
 import {
     defineReadTool,
     createReadImplement,
@@ -54,14 +54,19 @@ const agentTypes: AgentConfig[] = [
         name: 'Bash',
         description: 'Agent specialized for executing shell commands and summarizing results. '
             + 'Use this agent (instead of the bash tool) when any of these apply:\n'
-            + '- The command is known to produce verbose or noisy output (e.g., npm install, docker logs, test runners, build output) and you only need the meaningful parts\n'
-            + '- The task requires running multiple commands whose results need to be aggregated or cross-referenced to produce a single answer\n'
+            + '- The command produces verbose or noisy output (e.g., npm search, npm install, docker logs, test runners, build output) and you only need the meaningful parts extracted\n'
+            + '- The task requires running multiple commands (e.g., search then view details) whose results need aggregation into a single answer\n'
             + '- The output needs interpretation, error diagnosis, or contextual analysis rather than raw display\n\n'
-            + 'Unlike the bash tool which runs a single command and returns raw output verbatim, this agent can run multiple commands across turns, read files, search with glob/grep, filter out noise, and return only the meaningful findings as a clean summary.',
+            + 'When NOT to use:\n'
+            + '- For single simple commands (e.g., git status, mkdir, cd) - use the bash tool instead\n'
+            + '- When you already know the exact file path - use read/write/edit tools instead\n\n'
+            + 'Unlike the bash tool which runs a single command and returns raw output verbatim, this agent runs multiple commands across turns, filters out noise, and returns only meaningful findings as a clean summary.',
         setup: async agentLoop => {
             agentLoop.setSystemPrompt(
-                'You are a Bash agent. Your goal is to run commands, analyze their output, and synthesize the results into a concise, accurate answer. '
-                    + 'Filter out noise from verbose or complex output, interpret error messages, and extract only what is meaningful. '
+                'You are a Bash agent. Run shell commands, analyze their output, and synthesize results into a concise, accurate answer. '
+                    + 'Filter out noise from verbose output (progress bars, timestamps, redundant logs). '
+                    + 'Interpret error messages and extract only what is meaningful. '
+                    + 'If multiple commands are needed, run them sequentially and aggregate the results. '
                     + 'Return what you found — no need to explain why it answers the query.'
             );
 
@@ -132,8 +137,4 @@ const taskOutputDefinition = await defineTaskOutputTool();
 const taskOutputImplement = await createTaskOutputImplement();
 agentLoop.registerTool(taskOutputDefinition, taskOutputImplement);
 
-const stream = agentLoop.submitUserQuery(
-    '用npm命令行找一些react相关的组件库的说明，给我推荐几个，注意npm命令的输出通常会很冗余'
-);
-
-await renderAgentLoop(stream);
+await renderInteractiveLoop(agentLoop);

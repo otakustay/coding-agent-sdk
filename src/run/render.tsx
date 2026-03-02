@@ -1,6 +1,7 @@
-import {Fragment, useState, useEffect} from 'react';
-import {render, Box, Text, useApp} from 'ink';
-import type {AgentWorkItem, StreamChunk} from '../agent/loop/interface.js';
+import {Fragment, useState, useCallback} from 'react';
+import {render, Box, Text, useInput} from 'ink';
+import type {AgentWorkItem} from '../agent/loop/interface.js';
+import type {AgentLoop} from '../agent/index.js';
 import {toItemUpdateStream} from '../agent/index.js';
 import {UserQuery} from './components/query.js';
 import {ReasoningOutput, ReasoningSummaryOutput} from './components/reasoning.js';
@@ -58,26 +59,92 @@ function AgentOutput({items}: {items: AgentWorkItem[]}) {
     );
 }
 
-function App({stream}: {stream: AsyncIterable<StreamChunk>}) {
-    const {exit} = useApp();
-    const [items, setItems] = useState<AgentWorkItem[]>([]);
+function InputPrompt({value}: {value: string}) {
+    const placeholder = 'Ask anything and get luck';
+    return (
+        <Box>
+            <Text bold color="green">{'❯ '}</Text>
+            {value
+                ? (
+                    <>
+                        <Text>{value}</Text>
+                        <Text inverse>{' '}</Text>
+                    </>
+                )
+                : <Text dimColor>{placeholder}</Text>}
+        </Box>
+    );
+}
 
-    useEffect(
-        () => {
+function App({agentLoop}: {agentLoop: AgentLoop}) {
+    const [items, setItems] = useState<AgentWorkItem[]>([]);
+    const [inputValue, setInputValue] = useState('');
+    const [isRunning, setIsRunning] = useState(false);
+
+    const submitQuery = useCallback(
+        (query: string) => {
+            if (!query.trim()) {
+                return;
+            }
+
+            const userItem: AgentWorkItem = {
+                type: 'input.user',
+                content: [{type: 'text', content: query}],
+            };
+            setItems(prev => [...prev, userItem]);
+            setIsRunning(true);
+
             void (async () => {
+                const stream = agentLoop.submitUserQuery(query);
                 for await (const update of toItemUpdateStream(stream)) {
                     setItems(update);
                 }
-                exit();
+                setIsRunning(false);
             })();
         },
-        [exit, stream]
+        [agentLoop]
     );
 
-    return <AgentOutput items={items} />;
+    useInput(
+        (input, key) => {
+            if (isRunning) {
+                return;
+            }
+
+            if (key.return) {
+                submitQuery(inputValue);
+                setInputValue('');
+                return;
+            }
+
+            if (key.backspace || key.delete) {
+                setInputValue(v => v.slice(0, -1));
+                return;
+            }
+
+            if (input && !key.ctrl && !key.meta) {
+                setInputValue(v => v + input);
+            }
+        }
+    );
+
+    const visible = items.filter(item => !HIDDEN_TYPES.has(item.type));
+
+    return (
+        <Box flexDirection="column">
+            <AgentOutput items={items} />
+            {!isRunning && (
+                <Box flexDirection="column">
+                    {visible.length > 0 && <Text dimColor>{SEPARATOR}</Text>}
+                    <InputPrompt value={inputValue} />
+                </Box>
+            )}
+        </Box>
+    );
 }
 
-export async function renderAgentLoop(stream: AsyncIterable<StreamChunk>): Promise<void> {
-    const {waitUntilExit} = render(<App stream={stream} />);
+export async function renderInteractiveLoop(agentLoop: AgentLoop): Promise<void> {
+    console.clear();
+    const {waitUntilExit} = render(<App agentLoop={agentLoop} />);
     await waitUntilExit();
 }
