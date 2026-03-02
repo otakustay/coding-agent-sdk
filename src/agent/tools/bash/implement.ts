@@ -1,11 +1,12 @@
 import {execa} from 'execa';
 import dedent from 'dedent';
+import stripAnsi from 'strip-ansi';
 import {truncateText} from '../../../utils/string.js';
 import type {ToolImplementation} from '../interface.js';
 import type {BashToolParameters} from './definition.js';
 
 const MAX_LINE_LENGTH = 2000;
-const MAX_OUTPUT = 30_000;
+const MAX_OUTPUT_LINES = 500;
 
 export async function createBashImplement(): Promise<ToolImplementation<BashToolParameters>> {
     return async (parameters, context): Promise<string> => {
@@ -29,7 +30,7 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
                 (chunk: Buffer) => {
                     const record = context.processes.get(taskId);
                     if (record) {
-                        record.output += chunk.toString();
+                        record.output += stripAnsi(chunk.toString());
                     }
                 }
             );
@@ -69,11 +70,13 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
         }
 
         const output = truncateText(
-            all,
+            stripAnsi(all),
             {
                 maxCharactersPerLine: MAX_LINE_LENGTH,
-                maxTotalCharacters: MAX_OUTPUT,
-                onTruncate: truncated => truncated + `\n(Output truncated at ${truncated.length} characters.)`,
+                maxLines: MAX_OUTPUT_LINES,
+                from: 'tail',
+                onTruncate: truncated =>
+                    `(Output truncated, showing last ${truncated.split('\n').length} lines.)\n` + truncated,
             }
         );
 
