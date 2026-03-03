@@ -1,166 +1,116 @@
-import type {
-    OpenResponsesInput,
-    OpenResponsesInputMessageItem,
-    OpenResponsesFunctionCallOutput,
-    ResponsesOutputMessage,
-    ResponsesOutputItemReasoning,
-    ResponsesOutputItemFunctionCall,
-} from '@openrouter/sdk/models';
-import type {
-    AgentWorkItem,
-    AgentWorkItemSystemInput,
-    AgentWorkItemUserInput,
-    AgentWorkItemToolResultInput,
-    AgentWorkItemTextOutput,
-    AgentWorkItemReasoningOutput,
-    AgentWorkItemReasoningSummaryOutput,
-    AgentWorkItemToolCallOutput,
-} from './interface.js';
+import type {OpenResponsesInput} from '@openrouter/sdk/models';
+import type {AgentWorkItem, TimelineEntry} from './interface.js';
+import {TimelineCoalescer} from './coalescer.js';
+import type {CoalescedItem} from './coalescer.js';
 
-type ItemInput = Extract<OpenResponsesInput, readonly unknown[]>[number];
-
-/**
- * Transform system input to OpenRouter format
- */
-function transformSystemInput(item: AgentWorkItemSystemInput): OpenResponsesInputMessageItem {
-    return {
-        role: 'system',
-        content: [{type: 'input_text', text: item.content}],
-    };
+function normalizeStatus(status: unknown): 'open' | 'completed' {
+    return status === 'completed' ? 'completed' : 'open';
 }
 
-/**
- * Transform user input to OpenRouter format
- */
-function transformUserInput(item: AgentWorkItemUserInput): OpenResponsesInputMessageItem {
-    return {
-        role: 'user',
-        content: item.content.map(part => ({
-            type: 'input_text',
-            text: part.content,
-        })),
-    };
+function coalesceTimeline(timeline: TimelineEntry[]): CoalescedItem[] {
+    const coalescer = new TimelineCoalescer();
+    for (const entry of timeline) {
+        coalescer.consumeTimelineEntry(entry);
+    }
+    return coalescer.getCoalescedTimeline();
 }
 
-/**
- * Transform tool result to OpenRouter format
- */
-function transformToolResultInput(item: AgentWorkItemToolResultInput): OpenResponsesFunctionCallOutput {
-    return {
-        callId: item.callId,
-        type: 'function_call_output',
-        output: item.content,
-    };
+function transformTimelineItemToWorkItem(item: CoalescedItem): AgentWorkItem | null {
+    if (item.type === 'message' && item.role === 'system') {
+        return {
+            type: 'input.system',
+            content: item.content.filter(v => v.type === 'input_text').map(v => v.text).join(''),
+        };
+    }
+
+    if (item.type === 'message' && item.role === 'user') {
+        return {
+            type: 'input.user',
+            content: item.content,
+        };
+    }
+
+    if (item.type === 'function_call_output') {
+        return {
+            type: 'input.toolResult',
+            callId: item.callId,
+            content: item.output,
+        };
+    }
+
+    if (item.type === 'message' && item.role === 'assistant') {
+        return {
+            type: 'output.text',
+            id: item.id,
+            status: normalizeStatus(item.status),
+            content: item.content,
+        };
+    }
+
+    if (item.type === 'reasoning') {
+        return {
+            type: 'output.reasoning',
+            id: item.id,
+            status: normalizeStatus(item.status),
+            content: item.content,
+            summary: item.summary,
+        };
+    }
+
+    if (item.type === 'function_call') {
+        return {
+            type: 'output.toolCall',
+            id: item.id ?? item.callId ?? '',
+            status: normalizeStatus(item.status),
+            callId: item.callId ?? '',
+            name: item.name ?? '',
+            arguments: item.arguments ?? '',
+        };
+    }
+
+    return null;
 }
 
-/**
- * Transform text output to OpenRouter format
- */
-function transformTextOutput(item: AgentWorkItemTextOutput): ResponsesOutputMessage {
-    return {
-        id: item.id,
-        role: 'assistant',
-        type: 'message',
-        status: item.status === 'completed' ? 'completed' : 'in_progress',
-        content: [
-            {
-                type: 'output_text',
-                text: item.content,
-            },
-        ],
-    };
-}
-
-/**
- * Transform reasoning output to OpenRouter format
- */
-function transformReasoningOutput(item: AgentWorkItemReasoningOutput): ResponsesOutputItemReasoning {
-    return {
-        id: item.id,
-        type: 'reasoning',
-        status: item.status === 'completed' ? 'completed' : 'in_progress',
-        content: [
-            {
-                type: 'reasoning_text',
-                text: item.content,
-            },
-        ],
-        summary: [
-            {
-                type: 'summary_text',
-                text: item.summary,
-            },
-        ],
-    };
-}
-
-/**
- * Transform reasoning summary output to OpenRouter format
- */
-function transformReasoningSummaryOutput(item: AgentWorkItemReasoningSummaryOutput): ResponsesOutputItemReasoning {
-    return {
-        id: item.id,
-        type: 'reasoning',
-        status: item.status === 'completed' ? 'completed' : 'in_progress',
-        content: [],
-        summary: [
-            {
-                type: 'summary_text',
-                text: item.content,
-            },
-        ],
-    };
-}
-
-/**
- * Transform tool call output to OpenRouter format
- */
-function transformToolCallOutput(item: AgentWorkItemToolCallOutput): ResponsesOutputItemFunctionCall {
-    return {
-        callId: item.callId,
-        type: 'function_call',
-        name: item.name,
-        arguments: item.arguments,
-        status: item.status === 'completed' ? 'completed' : 'in_progress',
-    };
-}
-
-/**
- * Transform AgentWorkItem to OpenRouter SDK input format
- */
-function transformWorkItemToInput(item: AgentWorkItem): ItemInput {
+function isMeaningfulOutputItem(item: AgentWorkItem): boolean {
     switch (item.type) {
-        case 'input.system':
-            return transformSystemInput(item);
-
-        case 'input.user':
-            return transformUserInput(item);
-
-        case 'input.toolResult':
-            return transformToolResultInput(item);
-
         case 'output.text':
-            return transformTextOutput(item);
-
+            return item.content.length > 0;
         case 'output.reasoning':
-            return transformReasoningOutput(item);
-
-        case 'output.reasoningSummary':
-            return transformReasoningSummaryOutput(item);
-
+            return (item.content?.length ?? 0) > 0 || item.summary.length > 0;
         case 'output.toolCall':
-            return transformToolCallOutput(item);
-
+            return item.callId.length > 0 || item.name.length > 0 || item.arguments.length > 0;
         default:
-            // TypeScript will catch if we miss a case
-            const exhaustiveCheck: never = item;
-            throw new Error(`Unhandled item type: ${(exhaustiveCheck as AgentWorkItem).type}`);
+            return true;
     }
 }
 
 /**
- * Transform an array of AgentWorkItems to OpenRouter SDK input format
+ * Materialize timeline entries into AgentWorkItems by coalescing output events.
  */
-export function transformWorkItemsToInput(items: AgentWorkItem[]): OpenResponsesInput {
-    return items.map(transformWorkItemToInput);
+export function materializeTimeline(timeline: TimelineEntry[]): AgentWorkItem[] {
+    const materialized: AgentWorkItem[] = [];
+    const coalescedTimeline = coalesceTimeline(timeline);
+
+    for (const item of coalescedTimeline) {
+        const workItem = transformTimelineItemToWorkItem(item);
+
+        if (!workItem) {
+            continue;
+        }
+
+        if (!isMeaningfulOutputItem(workItem)) {
+            continue;
+        }
+
+        materialized.push(workItem);
+    }
+
+    return materialized;
+}
+
+/**
+ * Convert append-only timeline into canonical OpenRouter input items.
+ */
+export function transformTimelineToInput(timeline: TimelineEntry[]): OpenResponsesInput {
+    return coalesceTimeline(timeline);
 }

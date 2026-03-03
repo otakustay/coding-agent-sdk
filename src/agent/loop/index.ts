@@ -1,14 +1,18 @@
 /* oxlint-disable max-lines */
 import {z} from 'zod';
 import {OpenRouter} from '@openrouter/sdk';
-import type {OpenResponsesRequestToolFunction} from '@openrouter/sdk/models';
+import type {
+    OpenResponsesRequestToolFunction,
+    OpenResponsesStreamEvent,
+} from '@openrouter/sdk/models';
 import type {
     AgentWorkItem,
     AgentWorkItemToolCallOutput,
     AgentWorkItemToolResultInput,
     StreamChunk,
+    TimelineEntry,
 } from './interface.js';
-import {transformWorkItemsToInput} from './transform.js';
+import {materializeTimeline, transformTimelineToInput} from './transform.js';
 import type {ToolDefinition, ToolImplementation, ProcessRecord} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
 import {discard} from '../../utils/iterable.js';
@@ -32,13 +36,51 @@ function toToolDefinition({definition}: RegisteredTool): OpenResponsesRequestToo
     };
 }
 
+function createSystemInputEntry(prompt: string): TimelineEntry {
+    return {
+        source: 'input',
+        item: {
+            role: 'system',
+            type: 'message',
+            content: [{type: 'input_text', text: prompt}],
+        },
+    };
+}
+
+function createUserInputEntry(userQuery: string): TimelineEntry {
+    return {
+        source: 'input',
+        item: {
+            role: 'user',
+            type: 'message',
+            content: [{type: 'input_text', text: userQuery}],
+        },
+    };
+}
+
+function createToolResultInputEntry(result: AgentWorkItemToolResultInput): TimelineEntry {
+    return {
+        source: 'input',
+        item: {
+            type: 'function_call_output',
+            callId: result.callId,
+            output: result.content,
+        },
+    };
+}
+
+function isSystemInputEntry(entry: TimelineEntry): boolean {
+    return entry.source === 'input' && entry.item.type === 'message' && entry.item.role === 'system';
+}
+
 export class AgentLoop {
     private client: OpenRouter;
     private model: string;
-    private items: AgentWorkItem[] = [];
+    private timeline: TimelineEntry[] = [];
     private tools = new Map<string, RegisteredTool>();
     private subagents = new Map<string, AgentLoop>();
     private processes = new Map<string, ProcessRecord>();
+    private processedToolCallIds = new Set<string>();
     private running = false;
 
     constructor(apiKeyOrClient: string | OpenRouter, model: string) {
@@ -53,11 +95,8 @@ export class AgentLoop {
     }
 
     setSystemPrompt(prompt: string): void {
-        const existingIndex = this.items.findIndex(item => item.type === 'input.system');
-        if (existingIndex >= 0) {
-            this.items.splice(existingIndex, 1);
-        }
-        this.items.unshift({type: 'input.system', content: prompt});
+        this.timeline = this.timeline.filter(entry => !isSystemInputEntry(entry));
+        this.timeline.unshift(createSystemInputEntry(prompt));
     }
 
     async submitUserQueryForFinalMessageText(userQuery: string): Promise<string> {
@@ -70,8 +109,10 @@ export class AgentLoop {
     }
 
     getLastMessageText(): string {
-        const lastTextItem = this.items.findLast(item => item.type === 'output.text');
-        return lastTextItem?.type === 'output.text' ? lastTextItem.content : '';
+        const lastTextItem = materializeTimeline(this.timeline).findLast(item => item.type === 'output.text');
+        return lastTextItem?.type === 'output.text'
+            ? lastTextItem.content.map(p => p.type === 'output_text' ? p.text : p.refusal).join('')
+            : '';
     }
 
     registerTool(definition: ToolDefinition, implement: ToolImplementation<any>): void {
@@ -85,25 +126,29 @@ export class AgentLoop {
      * @yields StreamChunk - Chunks with type, id, status, and optional fields to merge
      */
     async *submitUserQuery(userQuery: string): AsyncGenerator<StreamChunk, void, undefined> {
-        this.items.push({type: 'input.user', content: [{type: 'text', content: userQuery}]});
+        this.timeline.push(createUserInputEntry(userQuery));
         this.running = true;
 
         try {
             while (true) {
-                const startIndex = this.items.length;
-
                 yield* this.streamModelResponse();
 
-                const newToolCalls = this.items.slice(startIndex).filter(isExecutableToolCall);
+                const newToolCalls = materializeTimeline(this.timeline)
+                    .filter(isExecutableToolCall)
+                    .filter(item => !this.processedToolCallIds.has(item.callId));
 
                 if (newToolCalls.length === 0) {
                     break;
                 }
 
+                for (const toolCall of newToolCalls) {
+                    this.processedToolCallIds.add(toolCall.callId);
+                }
+
                 const results = await this.executeToolCalls(newToolCalls);
 
                 for (const result of results) {
-                    this.items.push(result);
+                    this.timeline.push(createToolResultInputEntry(result));
                     yield {
                         type: 'input.toolResult',
                         id: `toolResult:${result.callId}`,
@@ -123,16 +168,22 @@ export class AgentLoop {
         return [...this.tools.values()].map(toToolDefinition);
     }
 
+    private appendOutputEvent(event: OpenResponsesStreamEvent): void {
+        this.timeline.push({source: 'output', event});
+    }
+
     private async *streamModelResponse(): AsyncGenerator<StreamChunk, void, undefined> {
         const toolDefinitions = this.buildToolDefinitions();
         const response = await this.client.beta.responses.send({
             stream: true,
             model: this.model,
-            input: transformWorkItemsToInput(this.items),
+            input: transformTimelineToInput(this.timeline),
             ...(toolDefinitions.length > 0 ? {tools: toolDefinitions} : {}),
         });
 
         for await (const event of response) {
+            this.appendOutputEvent(event);
+
             if (event.type === 'error') {
                 throw new Error(event.message ?? 'Unknown error occurred');
             }
@@ -145,13 +196,6 @@ export class AgentLoop {
                 const {item} = event;
 
                 if (item.type === 'reasoning') {
-                    this.items.push({
-                        type: 'output.reasoning',
-                        id: item.id,
-                        status: 'open',
-                        content: '',
-                        summary: '',
-                    });
                     yield {
                         type: 'output.reasoning',
                         id: item.id,
@@ -159,12 +203,6 @@ export class AgentLoop {
                     };
                 }
                 else if (item.type === 'message') {
-                    this.items.push({
-                        type: 'output.text',
-                        id: item.id,
-                        status: 'open',
-                        content: '',
-                    });
                     yield {
                         type: 'output.text',
                         id: item.id,
@@ -172,21 +210,13 @@ export class AgentLoop {
                     };
                 }
                 else if (item.type === 'function_call') {
-                    const functionCallItem = item as Extract<typeof item, {type: 'function_call'}>;
-                    this.items.push({
-                        type: 'output.toolCall',
-                        id: functionCallItem.id ?? '',
-                        status: 'open',
-                        callId: functionCallItem.callId ?? '',
-                        name: functionCallItem.name ?? '',
-                        arguments: '',
-                    });
+                    const id = item.id ?? item.callId ?? '';
                     yield {
                         type: 'output.toolCall',
-                        id: functionCallItem.id ?? '',
+                        id,
                         status: 'open',
-                        callId: functionCallItem.callId ?? '',
-                        name: functionCallItem.name ?? '',
+                        callId: item.callId ?? '',
+                        name: item.name ?? '',
                     };
                 }
 
@@ -198,10 +228,6 @@ export class AgentLoop {
             }
 
             if (event.type === 'response.output_text.delta') {
-                const item = this.items.findLast(i => i.type === 'output.text' && i.id === event.itemId);
-                if (item && item.type === 'output.text') {
-                    item.content += event.delta;
-                }
                 yield {
                     type: 'output.text',
                     id: event.itemId,
@@ -212,10 +238,6 @@ export class AgentLoop {
             }
 
             if (event.type === 'response.reasoning_text.delta') {
-                const item = this.items.findLast(i => i.type === 'output.reasoning' && i.id === event.itemId);
-                if (item && item.type === 'output.reasoning') {
-                    item.content += event.delta;
-                }
                 yield {
                     type: 'output.reasoning',
                     id: event.itemId,
@@ -226,10 +248,6 @@ export class AgentLoop {
             }
 
             if (event.type === 'response.reasoning_summary_text.delta') {
-                const item = this.items.findLast(i => i.type === 'output.reasoning' && i.id === event.itemId);
-                if (item && item.type === 'output.reasoning') {
-                    item.summary += event.delta;
-                }
                 yield {
                     type: 'output.reasoning',
                     id: event.itemId,
@@ -240,10 +258,6 @@ export class AgentLoop {
             }
 
             if (event.type === 'response.function_call_arguments.delta') {
-                const item = this.items.findLast(i => i.type === 'output.toolCall' && i.id === event.itemId);
-                if (item && item.type === 'output.toolCall') {
-                    item.arguments += event.delta;
-                }
                 yield {
                     type: 'output.toolCall',
                     id: event.itemId,
@@ -254,10 +268,6 @@ export class AgentLoop {
             }
 
             if (event.type === 'response.refusal.delta') {
-                const item = this.items.findLast(i => i.type === 'output.text' && i.id === event.itemId);
-                if (item && item.type === 'output.text') {
-                    item.content += event.delta;
-                }
                 yield {
                     type: 'output.text',
                     id: event.itemId,
@@ -268,37 +278,15 @@ export class AgentLoop {
             }
 
             if (event.type === 'response.output_item.done') {
-                const matchId = event.item.type === 'function_call'
-                    ? event.item.id ?? event.item.callId
-                    : event.item.id;
-
-                const item = this.items.findLast(
-                    i => (i.type === 'output.reasoning'
-                        || i.type === 'output.reasoningSummary'
-                        || i.type === 'output.text'
-                        || i.type === 'output.toolCall')
-                        && i.id === matchId
-                );
-
-                if (item) {
-                    if (
-                        item.type === 'output.reasoning'
-                        || item.type === 'output.reasoningSummary'
-                        || item.type === 'output.text'
-                        || item.type === 'output.toolCall'
-                    ) {
-                        item.status = 'completed';
-                    }
-
-                    if (item.type === 'output.reasoning') {
-                        yield {type: 'output.reasoning', id: item.id, status: 'completed'};
-                    }
-                    else if (item.type === 'output.text') {
-                        yield {type: 'output.text', id: item.id, status: 'completed'};
-                    }
-                    else if (item.type === 'output.toolCall') {
-                        yield {type: 'output.toolCall', id: item.id, status: 'completed'};
-                    }
+                if (event.item.type === 'reasoning' && event.item.id) {
+                    yield {type: 'output.reasoning', id: event.item.id, status: 'completed'};
+                }
+                else if (event.item.type === 'message' && event.item.id) {
+                    yield {type: 'output.text', id: event.item.id, status: 'completed'};
+                }
+                else if (event.item.type === 'function_call') {
+                    const id = event.item.id ?? event.item.callId ?? '';
+                    yield {type: 'output.toolCall', id, status: 'completed'};
                 }
                 continue;
             }
@@ -307,13 +295,14 @@ export class AgentLoop {
 
     private createToolCallContext() {
         return {
-            historyItems: [...this.items],
+            historyItems: materializeTimeline(this.timeline),
             respondingModel: this.model,
             workingAgentLoop: this,
             subagents: this.subagents,
             processes: this.processes,
         };
     }
+
     private async executeToolCall(toolCall: AgentWorkItemToolCallOutput): Promise<AgentWorkItemToolResultInput> {
         const registered = this.tools.get(toolCall.name);
         if (!registered) {

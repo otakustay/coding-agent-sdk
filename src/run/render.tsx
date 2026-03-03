@@ -89,7 +89,7 @@ function App({agentLoop}: {agentLoop: AgentLoop}) {
 
             const userItem: AgentWorkItem = {
                 type: 'input.user',
-                content: [{type: 'text', content: query}],
+                content: [{type: 'input_text', text: query}],
             };
             setItems(prev => [...prev, userItem]);
             setIsRunning(true);

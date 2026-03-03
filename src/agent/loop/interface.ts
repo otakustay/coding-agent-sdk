@@ -1,3 +1,11 @@
+import type {
+    OpenResponsesInputMessageItem,
+    OpenResponsesFunctionCallOutput,
+    OpenResponsesStreamEvent,
+    ResponsesOutputMessage,
+    ResponsesOutputItemReasoning,
+} from '@openrouter/sdk/models';
+
 export interface AgentWorkItemOutputBase {
     id: string;
     status: 'open' | 'completed';
@@ -8,20 +16,15 @@ export interface AgentWorkItemSystemInput {
     content: string;
 }
 
-export interface AgentWorkItemUserInputContentPart {
-    type: 'text';
-    content: string;
-}
-
 export interface AgentWorkItemUserInput {
     type: 'input.user';
-    content: AgentWorkItemUserInputContentPart[];
+    content: OpenResponsesInputMessageItem['content'];
 }
 
 export interface AgentWorkItemReasoningOutput extends AgentWorkItemOutputBase {
     type: 'output.reasoning';
-    content: string;
-    summary: string;
+    content: ResponsesOutputItemReasoning['content'];
+    summary: ResponsesOutputItemReasoning['summary'];
 }
 
 export interface AgentWorkItemReasoningSummaryOutput extends AgentWorkItemOutputBase {
@@ -31,7 +34,7 @@ export interface AgentWorkItemReasoningSummaryOutput extends AgentWorkItemOutput
 
 export interface AgentWorkItemTextOutput extends AgentWorkItemOutputBase {
     type: 'output.text';
-    content: string;
+    content: ResponsesOutputMessage['content'];
 }
 
 export interface AgentWorkItemToolCallOutput extends AgentWorkItemOutputBase {
@@ -94,3 +97,9 @@ export type StreamChunk =
     | TextStreamChunk
     | ToolCallStreamChunk
     | ToolResultStreamChunk;
+
+export type TimelineInputItem = OpenResponsesInputMessageItem | OpenResponsesFunctionCallOutput;
+
+export type TimelineEntry =
+    | {source: 'input', item: TimelineInputItem}
+    | {source: 'output', event: OpenResponsesStreamEvent};

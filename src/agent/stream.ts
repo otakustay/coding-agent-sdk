@@ -16,15 +16,15 @@ function createItemFromChunk(chunk: StreamChunk): AgentWorkItem {
                 type: 'output.reasoning',
                 id: chunk.id,
                 status: chunk.status,
-                content: chunk.content ?? '',
-                summary: chunk.summary ?? '',
+                content: chunk.content ? [{type: 'reasoning_text' as const, text: chunk.content}] : undefined,
+                summary: chunk.summary ? [{type: 'summary_text' as const, text: chunk.summary}] : [],
             };
         case 'output.text':
             return {
                 type: 'output.text',
                 id: chunk.id,
                 status: chunk.status,
-                content: chunk.content ?? '',
+                content: chunk.content ? [{type: 'output_text' as const, text: chunk.content}] : [],
             };
         case 'output.toolCall':
             return {
@@ -48,25 +48,34 @@ function createItemFromChunk(chunk: StreamChunk): AgentWorkItem {
 
 function mergeChunkIntoItem(item: OutputItem, chunk: StreamChunk): OutputItem {
     switch (chunk.type) {
-        case 'output.reasoning':
+        case 'output.reasoning': {
             if (item.type !== 'output.reasoning') {
                 return item;
             }
+            const prevContent = item.content?.[0]?.text ?? '';
+            const prevSummary = item.summary[0]?.text ?? '';
             return {
                 ...item,
                 status: chunk.status,
-                content: item.content + (chunk.content ?? ''),
-                summary: item.summary + (chunk.summary ?? ''),
+                content: chunk.content === undefined
+                    ? item.content
+                    : [{type: 'reasoning_text' as const, text: prevContent + chunk.content}],
+                summary: chunk.summary === undefined
+                    ? item.summary
+                    : [{type: 'summary_text' as const, text: prevSummary + chunk.summary}],
             };
-        case 'output.text':
+        }
+        case 'output.text': {
             if (item.type !== 'output.text') {
                 return item;
             }
+            const prev = item.content[0]?.type === 'output_text' ? item.content[0].text : '';
             return {
                 ...item,
                 status: chunk.status,
-                content: item.content + (chunk.content ?? ''),
+                content: [{type: 'output_text' as const, text: prev + (chunk.content ?? '')}],
             };
+        }
         case 'output.toolCall':
             if (item.type !== 'output.toolCall') {
                 return item;

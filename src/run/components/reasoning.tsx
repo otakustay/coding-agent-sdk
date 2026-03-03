@@ -3,10 +3,12 @@ import type {AgentWorkItem} from '../../agent/loop/interface.js';
 import {Markdown} from './markdown.js';
 
 export function ReasoningOutput({item}: {item: Extract<AgentWorkItem, {type: 'output.reasoning'}>}) {
+    const text = item.content ? item.content.map(p => p.text).join('') : '';
+
     return (
         <Box flexDirection="column" borderStyle="round" borderColor="gray">
             <Text dimColor bold>Thinking{item.status === 'open' ? '…' : ''}</Text>
-            <Markdown content={item.content} dimColor />
+            <Markdown content={text} dimColor />
         </Box>
     );
 }
