@@ -2,6 +2,7 @@ import type {ToolDefinition} from '../interface.js';
 import {loadDefinitionFromYamlRelative} from '../utils.js';
 
 export interface BashToolParameters {
+    description: string;
     command: string;
     background?: boolean;
 }

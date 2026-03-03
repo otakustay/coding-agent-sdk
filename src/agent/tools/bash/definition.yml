@@ -32,6 +32,22 @@ description: |-
 parameters:
   type: object
   properties:
+    description:
+      type: string
+      description: |-
+        Clear, concise description of what this command does in 5-10 words. Examples:
+
+        Input: ls
+        Output: Lists files in current directory
+
+        Input: git status
+        Output: Shows working tree status
+
+        Input: npm install
+        Output: Installs package dependencies
+
+        Input: mkdir foo
+        Output: Creates directory 'foo'
     command:
       type: string
       description: |-
@@ -41,4 +57,5 @@ parameters:
       description: |-
         When true, the command runs in the background without blocking. The tool returns immediately with a task ID. Use the `taskOutput` tool with that task ID to read the output at any time. Use this for long-running commands (e.g., servers, builds, watchers).
   required:
+    - description
     - command
