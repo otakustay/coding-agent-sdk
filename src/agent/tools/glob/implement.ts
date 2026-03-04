@@ -26,7 +26,7 @@ export async function createGlobImplement(): Promise<ToolImplementation<GlobTool
 
         const normalizedPattern = pattern.startsWith('**/') ? pattern : `**/${pattern}`;
 
-        const files = await globby(normalizedPattern, {cwd: searchDir, absolute: true});
+        const files = await globby(normalizedPattern, {cwd: searchDir, absolute: true, gitignore: true});
 
         if (files.length === 0) {
             return 'No files found';
