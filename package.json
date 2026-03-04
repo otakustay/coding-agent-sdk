@@ -10,6 +10,7 @@
     "format": "dprint fmt",
     "lint": "oxlint --fix",
     "lint-staged": "lint-staged",
+    "test": "vitest run",
     "type-check": "tsc",
     "ci": "npm ci && npm run lint && npm run build && npm run type-check",
     "prepare": "husky"

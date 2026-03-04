@@ -7,7 +7,13 @@ import type {
 import type {TimelineEntry, TimelineInputItem} from './interface.js';
 
 type FoldedOutputItem = ResponsesOutputMessage | ResponsesOutputItemReasoning | ResponsesOutputItemFunctionCall;
-export type CoalescedItem = TimelineInputItem | FoldedOutputItem;
+
+export interface CoalescedErrorItem {
+    type: 'error';
+    message: string;
+}
+
+export type CoalescedItem = TimelineInputItem | FoldedOutputItem | CoalescedErrorItem;
 
 type AddedOutputItem = Extract<OpenResponsesStreamEvent, {type: 'response.output_item.added'}>['item'];
 type DoneOutputItem = Extract<OpenResponsesStreamEvent, {type: 'response.output_item.done'}>['item'];
@@ -35,6 +41,12 @@ export class TimelineCoalescer {
         }
         else if (event.type === 'response.output_item.done') {
             this.applyOutputItemDone(event.item);
+        }
+        else if (event.type === 'error') {
+            this.coalesced.push({type: 'error', message: event.message ?? 'Unknown error'});
+        }
+        else if (event.type === 'response.failed') {
+            this.coalesced.push({type: 'error', message: event.response.error?.message ?? 'Response failed'});
         }
     }
 

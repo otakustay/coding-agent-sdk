@@ -130,32 +130,21 @@ export class AgentLoop {
         this.running = true;
 
         try {
+            const state = {consecutiveErrors: 0};
             while (true) {
-                yield* this.streamModelResponse();
+                const {error: modelError, hasCalls} = yield* this.streamOneTurn();
 
-                const newToolCalls = materializeTimeline(this.timeline)
-                    .filter(isExecutableToolCall)
-                    .filter(item => !this.processedToolCallIds.has(item.callId));
-
-                if (newToolCalls.length === 0) {
-                    break;
+                if (modelError) {
+                    state.consecutiveErrors++;
+                    if (state.consecutiveErrors >= 3) {
+                        throw new Error(modelError);
+                    }
                 }
-
-                for (const toolCall of newToolCalls) {
-                    this.processedToolCallIds.add(toolCall.callId);
-                }
-
-                const results = await this.executeToolCalls(newToolCalls);
-
-                for (const result of results) {
-                    this.timeline.push(createToolResultInputEntry(result));
-                    yield {
-                        type: 'input.toolResult',
-                        id: `toolResult:${result.callId}`,
-                        status: 'completed',
-                        callId: result.callId,
-                        content: result.content,
-                    };
+                else {
+                    state.consecutiveErrors = 0;
+                    if (!hasCalls) {
+                        break;
+                    }
                 }
             }
         }
@@ -172,7 +161,7 @@ export class AgentLoop {
         this.timeline.push({source: 'output', event});
     }
 
-    private async *streamModelResponse(): AsyncGenerator<StreamChunk, void, undefined> {
+    private async *streamModelResponse(): AsyncGenerator<StreamChunk, {error?: string}, undefined> {
         const toolDefinitions = this.buildToolDefinitions();
         const response = await this.client.beta.responses.send({
             stream: true,
@@ -185,11 +174,11 @@ export class AgentLoop {
             this.appendOutputEvent(event);
 
             if (event.type === 'error') {
-                throw new Error(event.message ?? 'Unknown error occurred');
+                return {error: event.message ?? 'Unknown error occurred'};
             }
 
             if (event.type === 'response.failed') {
-                throw new Error(event.response.error?.message ?? 'Response failed');
+                return {error: event.response.error?.message ?? 'Response failed'};
             }
 
             if (event.type === 'response.output_item.added') {
@@ -291,6 +280,37 @@ export class AgentLoop {
                 continue;
             }
         }
+
+        return {};
+    }
+
+    private async *streamOneTurn(): AsyncGenerator<StreamChunk, {error?: string, hasCalls: boolean}, undefined> {
+        const {error: modelError} = yield* this.streamModelResponse();
+
+        const newToolCalls = materializeTimeline(this.timeline)
+            .filter(isExecutableToolCall)
+            .filter(item => !this.processedToolCallIds.has(item.callId));
+
+        for (const toolCall of newToolCalls) {
+            this.processedToolCallIds.add(toolCall.callId);
+        }
+
+        const results = await this.executeToolCalls(newToolCalls);
+
+        for (const result of results) {
+            this.timeline.push(createToolResultInputEntry(result));
+            yield {
+                type: 'input.toolResult',
+                id: `toolResult:${result.callId}`,
+                status: 'completed',
+                callId: result.callId,
+                content: result.content,
+            };
+        }
+
+        return modelError
+            ? {error: modelError, hasCalls: newToolCalls.length > 0}
+            : {hasCalls: newToolCalls.length > 0};
     }
 
     private createToolCallContext() {
