@@ -1,3 +1,6 @@
+import fs from 'node:fs/promises';
+import {existsSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
 import {AgentLoop} from '../agent/loop/index.js';
 import {renderInteractiveLoop} from './render.js';
 import {
@@ -100,6 +103,15 @@ if (!apiKey) {
 }
 
 const agentLoop = new AgentLoop(apiKey, 'moonshotai/kimi-k2.5');
+
+const systemPromptPath = fileURLToPath(new URL('system.txt', import.meta.url));
+if (existsSync(systemPromptPath)) {
+    const systemPromptContent = await fs.readFile(systemPromptPath, 'utf8');
+    const systemPrompt = systemPromptContent.trim();
+    if (systemPrompt) {
+        agentLoop.setSystemPrompt(systemPrompt);
+    }
+}
 
 const readDefinition = await defineReadTool();
 const readImplement = await createReadImplement();
