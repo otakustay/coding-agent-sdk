@@ -13,7 +13,7 @@ import type {
     TimelineEntry,
 } from './interface.js';
 import {materializeTimeline, transformTimelineToInput} from './transform.js';
-import type {ToolDefinition, ToolImplementation, ProcessRecord} from '../tools/interface.js';
+import type {ToolDefinition, ToolImplementation, ProcessRecord, TaskRecord} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
 import {discard} from '../../utils/iterable.js';
 import {error} from './utils/prompt.js';
@@ -80,6 +80,7 @@ export class AgentLoop {
     private tools = new Map<string, RegisteredTool>();
     private subagents = new Map<string, AgentLoop>();
     private processes = new Map<string, ProcessRecord>();
+    private tasks = new Map<string, TaskRecord>();
     private processedToolCallIds = new Set<string>();
     private running = false;
     /**
@@ -334,6 +335,7 @@ export class AgentLoop {
             workingAgentLoop: this,
             subagents: this.subagents,
             processes: this.processes,
+            tasks: this.tasks,
         };
     }
 

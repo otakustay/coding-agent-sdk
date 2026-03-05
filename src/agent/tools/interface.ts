@@ -8,12 +8,25 @@ export interface ProcessRecord {
     subprocess: Promise<unknown> & {kill: () => void};
 }
 
+export type TaskStatus = 'pending' | 'in_progress' | 'completed' | 'deleted';
+
+export interface TaskRecord {
+    id: string;
+    subject: string;
+    description: string;
+    status: TaskStatus;
+    blocks: string[];
+    blockedBy: string[];
+    metadata: Record<string, unknown>;
+}
+
 export interface ToolExecutionContext {
     historyItems: AgentWorkItem[];
     respondingModel: string;
     workingAgentLoop: AgentLoop;
     subagents: Map<string, AgentLoop>;
     processes: Map<string, ProcessRecord>;
+    tasks: Map<string, TaskRecord>;
 }
 
 export interface ToolDefinition {
