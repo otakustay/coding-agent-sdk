@@ -21,3 +21,5 @@ export {defineTaskOutputTool, createTaskOutputImplement} from './taskOutput/inde
 export type {TaskOutputToolParameters} from './taskOutput/index.js';
 export {defineTaskStopTool, createTaskStopImplement} from './taskStop/index.js';
 export type {TaskStopToolParameters} from './taskStop/index.js';
+export {defineSkillTool, createSkillImplement} from './skill/index.js';
+export type {SkillToolParameters, SkillConfig} from './skill/index.js';

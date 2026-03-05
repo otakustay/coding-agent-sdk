@@ -1,0 +1,30 @@
+name: skill
+
+description: |
+  Execute a skill within the main conversation.
+
+  When asked to perform a task, check if any available skills match. Skills provide specialized capabilities and domain knowledge.
+
+  When users reference a "slash command" or "/<something>" (e.g., "/commit", "/review-pr"), they are referring to a skill. Use this tool to invoke it.
+
+  IMPORTANT:
+  - When a skill matches the user's request, this is a BLOCKING REQUIREMENT: invoke this skill tool BEFORE generating any other response about the task
+  - NEVER mention a skill without actually calling this tool
+  - Do not invoke a skill that is already loaded
+  - If the skill has ALREADY been loaded and its instructions follow in the next message, do NOT call this tool again - just follow the skill instructions directly
+
+  <available_skills>
+  {{skillList}}
+  </available_skills>
+
+parameters:
+  type: object
+  properties:
+    skill:
+      type: string
+      description: The skill name. E.g., "commit", "review-pr", or "pdf"
+    args:
+      type: string
+      description: Optional arguments for the skill
+  required:
+    - skill

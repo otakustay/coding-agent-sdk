@@ -1,13 +1,9 @@
 ---
 name: create-tool
 description: >-
-  Apply whenever working with tools in this SDK — creating new tools, modifying or extending existing
-  tools, updating tool definitions or parameters, optimizing tool logic, debugging tool behavior,
-  reading or reviewing tool-related code. Covers any files under src/agent/tools/, including
-  definition.yml, definition.ts, implement.ts, index.ts, utils.ts, and interface.ts.
-  Tools follow a standard four-file structure: definition.yml (name + description + JSON Schema),
-  definition.ts (TypeScript interface + factory), implement.ts (async runtime function),
-  index.ts (barrel export), plus registration in src/run/index.ts.
+  Use when creating, modifying, extending, or debugging tools in this SDK.
+  Covers any work under src/agent/tools/ — adding new tool types, updating
+  definitions, parameters, or implementation logic, and registering tools in src/tui/index.ts.
 ---
 
 # Tool Development

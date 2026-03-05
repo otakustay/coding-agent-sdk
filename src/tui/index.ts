@@ -1,6 +1,8 @@
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {parse} from 'yaml';
 import {AgentLoop} from '../agent/loop/index.js';
 import {renderInteractiveLoop} from './render.js';
 import {
@@ -26,8 +28,58 @@ import {
     createTaskStopImplement,
     defineTodoWriteTool,
     createTodoWriteImplement,
+    defineSkillTool,
+    createSkillImplement,
 } from '../agent/tools/index.js';
-import type {AgentConfig} from '../agent/tools/index.js';
+import type {AgentConfig, SkillConfig} from '../agent/tools/index.js';
+
+function parseSkillFile(fileContent: string, directory: string): SkillConfig | null {
+    if (!fileContent.startsWith('---\n')) {
+        return null;
+    }
+    const rest = fileContent.slice(4);
+    const sepIdx = rest.indexOf('\n---\n');
+    if (sepIdx === -1) {
+        return null;
+    }
+    const frontmatterStr = rest.slice(0, sepIdx);
+    const body = rest.slice(sepIdx + 5).trim();
+    const frontmatter = parse(frontmatterStr) as {name?: string, description?: string};
+    if (!frontmatter.name || !frontmatter.description) {
+        return null;
+    }
+    return {
+        name: frontmatter.name,
+        description: frontmatter.description,
+        content: body,
+        directory,
+    };
+}
+
+async function loadSkillConfigs(): Promise<SkillConfig[]> {
+    const skillsDir = path.join(process.cwd(), '.comate', 'skills');
+    if (!existsSync(skillsDir)) {
+        return [];
+    }
+    const entries = await fs.readdir(skillsDir, {withFileTypes: true});
+    const skills: SkillConfig[] = [];
+    for (const entry of entries) {
+        if (!entry.isDirectory()) {
+            continue;
+        }
+        const skillDir = path.join(skillsDir, entry.name);
+        const skillFile = path.join(skillDir, 'SKILL.md');
+        if (!existsSync(skillFile)) {
+            continue;
+        }
+        const content = await fs.readFile(skillFile, 'utf8');
+        const skill = parseSkillFile(content, skillDir);
+        if (skill) {
+            skills.push(skill);
+        }
+    }
+    return skills;
+}
 
 const agentTypes: AgentConfig[] = [
     {
@@ -160,5 +212,10 @@ agentLoop.registerTool(taskStopDefinition, taskStopImplement);
 const todoWriteDefinition = await defineTodoWriteTool();
 const todoWriteImplement = await createTodoWriteImplement();
 agentLoop.registerTool(todoWriteDefinition, todoWriteImplement);
+
+const skillConfigs = await loadSkillConfigs();
+const skillDefinition = await defineSkillTool(skillConfigs);
+const skillImplement = await createSkillImplement(skillConfigs);
+agentLoop.registerTool(skillDefinition, skillImplement);
 
 await renderInteractiveLoop(agentLoop);
