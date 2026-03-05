@@ -10,7 +10,6 @@ export interface SkillConfig {
 
 export interface SkillToolParameters {
     skill: string;
-    args?: string;
 }
 
 function buildSkillList(skills: SkillConfig[]): string {
