@@ -5,6 +5,7 @@ export interface ProcessRecord {
     status: 'running' | 'completed';
     exitCode?: number;
     output: string;
+    subprocess: Promise<unknown> & {kill: () => void};
 }
 
 export interface ToolExecutionContext {

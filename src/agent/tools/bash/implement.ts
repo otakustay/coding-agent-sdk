@@ -23,7 +23,14 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
             subprocess.unref();
 
             const taskId = `bash_${pid}`;
-            context.processes.set(taskId, {status: 'running', output: ''});
+            context.processes.set(
+                taskId,
+                {
+                    status: 'running',
+                    output: '',
+                    subprocess: subprocess as Promise<unknown> & {kill: () => void},
+                }
+            );
 
             subprocess.all?.on(
                 'data',
@@ -56,6 +63,7 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
                 Task ID: ${taskId}
 
                 Use the \`taskOutput\` tool with task ID to read the output at any time.
+                Use the \`taskStop\` tool with task ID to stop the process. Do NOT use shell kill commands.
             `;
         }
 

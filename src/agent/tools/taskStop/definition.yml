@@ -1,0 +1,17 @@
+name: taskStop
+
+description: |-
+  Stops a running background task by its task ID.
+  Works for both bash processes (bash_<pid>) and agent tasks (agent_<n>).
+  This is the ONLY correct way to stop a background task — never use shell commands like `kill`, `pkill`, or `killall`.
+  Waits for the task to fully exit before returning.
+  If the task does not exit within the timeout, returns a timeout message — do not call taskStop again in that case, as termination is still in progress.
+
+parameters:
+  type: object
+  properties:
+    task_id:
+      type: string
+      description: The task ID of the background task to stop (e.g. bash_12345 or agent_1).
+  required:
+    - task_id

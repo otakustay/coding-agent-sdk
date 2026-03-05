@@ -82,6 +82,10 @@ export class AgentLoop {
     private processes = new Map<string, ProcessRecord>();
     private processedToolCallIds = new Set<string>();
     private running = false;
+    /**
+     * Flag whether current loop aborted externally, aborted loop will stop at next model response
+     */
+    private aborting: PromiseWithResolvers<void> | null = null;
 
     constructor(apiKeyOrClient: string | OpenRouter, model: string) {
         this.client = typeof apiKeyOrClient === 'string'
@@ -108,6 +112,14 @@ export class AgentLoop {
         return this.running;
     }
 
+    abort(): Promise<void> {
+        if (!this.running) {
+            return Promise.resolve();
+        }
+        this.aborting ??= Promise.withResolvers<void>();
+        return this.aborting.promise;
+    }
+
     getLastMessageText(): string {
         const lastTextItem = materializeTimeline(this.timeline).findLast(item => item.type === 'output.text');
         return lastTextItem?.type === 'output.text'
@@ -131,7 +143,7 @@ export class AgentLoop {
 
         try {
             const state = {consecutiveErrors: 0};
-            while (true) {
+            while (this.aborting === null) {
                 const {error: modelError, hasCalls} = yield* this.streamOneTurn();
 
                 if (modelError) {
@@ -150,6 +162,8 @@ export class AgentLoop {
         }
         finally {
             this.running = false;
+            this.aborting?.resolve();
+            this.aborting = null;
         }
     }
 

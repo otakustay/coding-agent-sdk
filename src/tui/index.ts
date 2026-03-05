@@ -22,6 +22,8 @@ import {
     createAgentImplement,
     defineTaskOutputTool,
     createTaskOutputImplement,
+    defineTaskStopTool,
+    createTaskStopImplement,
     defineTodoWriteTool,
     createTodoWriteImplement,
 } from '../agent/tools/index.js';
@@ -150,6 +152,10 @@ agentLoop.registerTool(agentDefinition, agentImplement);
 const taskOutputDefinition = await defineTaskOutputTool();
 const taskOutputImplement = await createTaskOutputImplement();
 agentLoop.registerTool(taskOutputDefinition, taskOutputImplement);
+
+const taskStopDefinition = await defineTaskStopTool();
+const taskStopImplement = await createTaskStopImplement();
+agentLoop.registerTool(taskStopDefinition, taskStopImplement);
 
 const todoWriteDefinition = await defineTodoWriteTool();
 const todoWriteImplement = await createTodoWriteImplement();

@@ -28,6 +28,7 @@ description: |-
     - The command runs asynchronously; the tool returns immediately with a task ID (e.g. bash_12345).
     - Use the `taskOutput` tool with the returned task ID to read output and check process status at any time.
     - Use background mode for long-running processes like dev servers, build watchers, or any command that does not terminate quickly.
+    - IMPORTANT: To stop a background task, ALWAYS use the `taskStop` tool with the task ID. NEVER use shell commands like `kill`, `pkill`, or `killall` — they bypass task tracking and will leave the task in an inconsistent state.
 
 parameters:
   type: object

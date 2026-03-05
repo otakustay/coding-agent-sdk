@@ -19,3 +19,5 @@ export {defineAgentTool, createAgentImplement} from './agent/index.js';
 export type {AgentToolParameters, AgentConfig} from './agent/index.js';
 export {defineTaskOutputTool, createTaskOutputImplement} from './taskOutput/index.js';
 export type {TaskOutputToolParameters} from './taskOutput/index.js';
+export {defineTaskStopTool, createTaskStopImplement} from './taskStop/index.js';
+export type {TaskStopToolParameters} from './taskStop/index.js';
