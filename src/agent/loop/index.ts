@@ -1,10 +1,10 @@
 /* oxlint-disable max-lines */
 import {z} from 'zod';
-import {OpenRouter} from '@openrouter/sdk';
 import type {
     OpenResponsesRequestToolFunction,
     OpenResponsesStreamEvent,
 } from '@openrouter/sdk/models';
+import type {ModelClient} from './modelClient.js';
 import type {
     AgentWorkItem,
     AgentWorkItemToolCallOutput,
@@ -80,7 +80,7 @@ function isSystemInputEntry(entry: TimelineEntry): boolean {
 }
 
 export class AgentLoop {
-    private client: OpenRouter;
+    private client: ModelClient;
     private model: string;
     private timeline: TimelineEntry[] = [];
     private tools = new Map<string, RegisteredTool>();
@@ -94,10 +94,8 @@ export class AgentLoop {
      */
     private aborting: PromiseWithResolvers<void> | null = null;
 
-    constructor(apiKeyOrClient: string | OpenRouter, model: string) {
-        this.client = typeof apiKeyOrClient === 'string'
-            ? new OpenRouter({apiKey: apiKeyOrClient})
-            : apiKeyOrClient;
+    constructor(client: ModelClient, model: string) {
+        this.client = client;
         this.model = model;
     }
 
@@ -191,11 +189,10 @@ export class AgentLoop {
 
     private async *streamModelResponse(): AsyncGenerator<StreamChunk, {error?: string}, undefined> {
         const toolDefinitions = this.buildToolDefinitions();
-        const response = await this.client.beta.responses.send({
-            stream: true,
+        const response = this.client.sendStream({
             model: this.model,
             input: transformTimelineToInput(this.timeline),
-            ...(toolDefinitions.length > 0 ? {tools: toolDefinitions} : {}),
+            tools: toolDefinitions,
         });
 
         for await (const event of response) {

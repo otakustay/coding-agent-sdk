@@ -3,7 +3,9 @@ import {existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {parse} from 'yaml';
+import {OpenRouter} from '@openrouter/sdk';
 import {AgentLoop} from '../agent/loop/index.js';
+import {OpenRouterModelClient} from '../agent/loop/modelClient.js';
 import {renderInteractiveLoop} from './render.js';
 import {
     defineReadTool,
@@ -158,7 +160,8 @@ if (!apiKey) {
     throw new Error('OPENROUTER_API_KEY environment variable is required');
 }
 
-const agentLoop = new AgentLoop(apiKey, 'moonshotai/kimi-k2.5');
+const client = new OpenRouterModelClient(new OpenRouter({apiKey}));
+const agentLoop = new AgentLoop(client, 'moonshotai/kimi-k2.5');
 
 const systemPromptPath = fileURLToPath(new URL('system.txt', import.meta.url));
 if (existsSync(systemPromptPath)) {
