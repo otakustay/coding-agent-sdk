@@ -13,7 +13,13 @@ import type {
     TimelineEntry,
 } from './interface.js';
 import {materializeTimeline, transformTimelineToInput} from './transform.js';
-import type {ToolDefinition, ToolImplementation, ProcessRecord, TaskRecord} from '../tools/interface.js';
+import type {
+    ToolDefinition,
+    ToolImplementation,
+    ProcessRecord,
+    SubagentRecord,
+    TaskRecord,
+} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
 import {discard} from '../../utils/iterable.js';
 import {error} from './utils/prompt.js';
@@ -78,7 +84,7 @@ export class AgentLoop {
     private model: string;
     private timeline: TimelineEntry[] = [];
     private tools = new Map<string, RegisteredTool>();
-    private subagents = new Map<string, AgentLoop>();
+    private subagents = new Map<string, SubagentRecord>();
     private processes = new Map<string, ProcessRecord>();
     private tasks = new Map<string, TaskRecord>();
     private processedToolCallIds = new Set<string>();
@@ -111,6 +117,13 @@ export class AgentLoop {
 
     isRunning(): boolean {
         return this.running;
+    }
+
+    submitNotificationIfIdle(notification: string): void {
+        if (this.running) {
+            return;
+        }
+        void discard(this.submitUserQuery(notification));
     }
 
     abort(): Promise<void> {

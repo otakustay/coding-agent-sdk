@@ -2,11 +2,24 @@ import {execa} from 'execa';
 import dedent from 'dedent';
 import stripAnsi from 'strip-ansi';
 import {truncateText} from '../../../utils/string.js';
-import type {ToolImplementation} from '../interface.js';
+import type {FinishReason, ToolImplementation} from '../interface.js';
 import type {BashToolParameters} from './definition.js';
 
 const MAX_LINE_LENGTH = 2000;
 const MAX_OUTPUT_LINES = 500;
+
+function formatBashBackgroundNotification(taskId: string, finishReason: Exclude<FinishReason, 'stop'>): string {
+    if (finishReason === 'success') {
+        return dedent`
+            Background task \`${taskId}\` has completed successfully.
+            Use the \`taskOutput\` tool with task ID \`${taskId}\` to read the output.
+        `;
+    }
+    return dedent`
+        Background task \`${taskId}\` has terminated unexpectedly.
+        Use the \`taskOutput\` tool with task ID \`${taskId}\` to read the output and check what went wrong.
+    `;
+}
 
 export async function createBashImplement(): Promise<ToolImplementation<BashToolParameters>> {
     return async (parameters, context): Promise<string> => {
@@ -27,6 +40,7 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
                 taskId,
                 {
                     status: 'running',
+                    owner: context.workingAgentLoop,
                     output: '',
                     subprocess: subprocess as Promise<unknown> & {kill: () => void},
                 }
@@ -46,15 +60,30 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
                 try {
                     const result = await subprocess;
                     const record = context.processes.get(taskId);
-                    if (record) {
-                        record.status = 'completed';
-                        if (result.exitCode !== undefined) {
-                            record.exitCode = result.exitCode;
-                        }
+                    if (!record || record.status === 'finished') {
+                        return;
                     }
+                    const finishReason: FinishReason = result.exitCode === 0 ? 'success' : 'exception';
+                    const exitCode = result.exitCode ?? record.exitCode;
+                    context.processes.set(
+                        taskId,
+                        {
+                            ...record,
+                            status: 'finished',
+                            finishReason,
+                            ...(exitCode === undefined ? {} : {exitCode}),
+                        }
+                    );
+                    record.owner.submitNotificationIfIdle(formatBashBackgroundNotification(taskId, finishReason));
                 }
                 catch {
-                    // ignore errors in background task
+                    const record = context.processes.get(taskId);
+                    if (!record || record.status === 'finished') {
+                        return;
+                    }
+                    context.processes.set(taskId, {...record, status: 'finished', finishReason: 'exception'});
+                    const notificationQuery = formatBashBackgroundNotification(taskId, 'exception');
+                    record.owner.submitNotificationIfIdle(notificationQuery);
                 }
             })();
 

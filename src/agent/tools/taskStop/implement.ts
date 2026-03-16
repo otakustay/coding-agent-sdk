@@ -1,19 +1,24 @@
 import timers from 'node:timers/promises';
-import type {AgentLoop} from '../../loop/index.js';
-import type {ProcessRecord, ToolImplementation} from '../interface.js';
+import type {ProcessRecord, SubagentRecord, ToolImplementation} from '../interface.js';
 import type {TaskStopToolParameters} from './definition.js';
 
 const BASH_STOP_TIMEOUT_MS = 10_000;
 
 const AGENT_STOP_TIMEOUT_MS = 60_000;
 
-async function stopSubagent(taskId: string, subagent: AgentLoop): Promise<string> {
-    if (!subagent.isRunning()) {
+async function stopSubagent(
+    taskId: string,
+    record: SubagentRecord,
+    subagents: Map<string, SubagentRecord>,
+): Promise<string> {
+    if (record.status === 'idle') {
         return `Task \`${taskId}\` is already completed, nothing to stop.`;
     }
 
+    subagents.set(taskId, {...record, status: 'idle', finishReason: 'stop'});
+
     const tasks = [
-        subagent.abort().then(() => 'done' as const),
+        record.agent.abort().then(() => 'done' as const),
         timers.setTimeout(AGENT_STOP_TIMEOUT_MS, 'timeout' as const, {ref: false}),
     ] as const;
     const winner = await Promise.race(tasks);
@@ -29,10 +34,16 @@ async function stopSubagent(taskId: string, subagent: AgentLoop): Promise<string
     return `Task \`${taskId}\` has been stopped.`;
 }
 
-async function stopProcess(taskId: string, record: ProcessRecord): Promise<string> {
-    if (record.status === 'completed') {
+async function stopProcess(
+    taskId: string,
+    record: ProcessRecord,
+    processes: Map<string, ProcessRecord>,
+): Promise<string> {
+    if (record.status === 'finished') {
         return `Task \`${taskId}\` is already completed, nothing to stop.`;
     }
+
+    processes.set(taskId, {...record, status: 'finished', finishReason: 'stop'});
 
     record.subprocess.kill();
     const tasks = [
@@ -58,15 +69,15 @@ export async function createTaskStopImplement(): Promise<ToolImplementation<Task
         const {processes, subagents} = context;
 
         if (taskId.startsWith('agent_')) {
-            const subagent = subagents.get(taskId);
-            if (!subagent) {
+            const record = subagents.get(taskId);
+            if (!record) {
                 const availableIds = [...subagents.keys()].join(', ');
                 if (availableIds) {
                     throw new Error(`task_id \`${taskId}\` not found, available task IDs: \`${availableIds}\``);
                 }
                 throw new Error('no background tasks exist');
             }
-            return stopSubagent(taskId, subagent);
+            return stopSubagent(taskId, record, subagents);
         }
 
         const record = processes.get(taskId);
@@ -77,6 +88,6 @@ export async function createTaskStopImplement(): Promise<ToolImplementation<Task
             }
             throw new Error('no background tasks exist');
         }
-        return stopProcess(taskId, record);
+        return stopProcess(taskId, record, processes);
     };
 }

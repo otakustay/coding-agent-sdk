@@ -45,8 +45,8 @@ export async function createTaskOutputImplement(): Promise<ToolImplementation<Ta
         const {processes, subagents} = context;
 
         if (taskId.startsWith('agent_')) {
-            const subagent = subagents.get(taskId);
-            if (!subagent) {
+            const record = subagents.get(taskId);
+            if (!record) {
                 const availableIds = [...subagents.keys()].join(', ');
                 if (availableIds) {
                     throw new Error(
@@ -56,8 +56,10 @@ export async function createTaskOutputImplement(): Promise<ToolImplementation<Ta
                 throw new Error('no background tasks exist');
             }
 
-            const statusText = subagent.isRunning() ? 'running' : 'completed';
-            return formatOutput(subagent.getLastMessageText(), statusText, offset, limit);
+            const statusText = record.status === 'running'
+                ? 'running'
+                : `completed (${record.finishReason})`;
+            return formatOutput(record.agent.getLastMessageText(), statusText, offset, limit);
         }
 
         const record = processes.get(taskId);
@@ -71,8 +73,8 @@ export async function createTaskOutputImplement(): Promise<ToolImplementation<Ta
             throw new Error('no background tasks exist');
         }
 
-        const statusText = record.status === 'completed'
-            ? `completed, exit code: ${record.exitCode ?? 'unknown'}`
+        const statusText = record.status === 'finished'
+            ? `finished (${record.finishReason}), exit code: ${record.exitCode ?? 'unknown'}`
             : 'running';
         return formatOutput(record.output, statusText, offset, limit);
     };

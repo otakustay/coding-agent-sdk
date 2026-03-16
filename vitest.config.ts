@@ -1,7 +1,7 @@
-import {defineConfig} from 'vitest/config';
+import type {ViteUserConfig} from 'vitest/config';
 
-export default defineConfig({
+export default {
     test: {
         include: ['src/**/__tests__/**/*.test.ts'],
     },
-});
+} satisfies ViteUserConfig;

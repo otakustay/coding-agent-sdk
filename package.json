@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "tui": "tsx --env-file=.env src/tui/index.ts",
+    "tui": "oxnode --env-file=.env src/tui/index.ts",
     "build": "tsc -p tsconfig.build.json",
     "format": "dprint fmt",
     "lint": "oxlint --fix",
@@ -30,6 +30,7 @@
     "@commitlint/cli": "^20.4.0",
     "@commitlint/config-conventional": "^20.4.0",
     "@commitlint/types": "^20.4.0",
+    "@oxc-node/cli": "^0.0.35",
     "@types/ignore-by-default": "^0.0.0",
     "@types/marked-terminal": "^6.1.1",
     "@types/react": "^19.2.14",
@@ -39,7 +40,6 @@
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "oxlint": "^1.43.0",
-    "tsx": "^4.21.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
   },
