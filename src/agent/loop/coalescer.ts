@@ -23,12 +23,16 @@ export class TimelineCoalescer {
     private readonly coalesced: CoalescedItem[] = [];
 
     consumeTimelineEntry(entry: TimelineEntry): void {
-        if (entry.source === 'input') {
-            this.coalesced.push(entry.item);
-            return;
+        switch (entry.source) {
+            case 'input':
+                this.coalesced.push(entry.item);
+                break;
+            case 'output':
+                this.applyOutputEvent(entry.event);
+                break;
+            default:
+                break;
         }
-
-        this.applyOutputEvent(entry.event);
     }
 
     getCoalescedTimeline(): CoalescedItem[] {

@@ -50,6 +50,11 @@ export interface AgentWorkItemToolResultInput {
     content: string;
 }
 
+export interface AgentWorkItemUsage {
+    type: 'usage';
+    usage: TokenUsage;
+}
+
 export type AgentWorkItem =
     | AgentWorkItemSystemInput
     | AgentWorkItemUserInput
@@ -57,7 +62,8 @@ export type AgentWorkItem =
     | AgentWorkItemReasoningSummaryOutput
     | AgentWorkItemTextOutput
     | AgentWorkItemToolCallOutput
-    | AgentWorkItemToolResultInput;
+    | AgentWorkItemToolResultInput
+    | AgentWorkItemUsage;
 
 export type StreamItemStatus = 'open' | 'completed';
 
@@ -92,14 +98,30 @@ export interface ToolResultStreamChunk {
     content: string;
 }
 
+export interface UsageStreamChunk {
+    type: 'usage';
+    usage: TokenUsage;
+}
+
 export type StreamChunk =
     | ReasoningStreamChunk
     | TextStreamChunk
     | ToolCallStreamChunk
-    | ToolResultStreamChunk;
+    | ToolResultStreamChunk
+    | UsageStreamChunk;
+
+export type ContentStreamChunk = Exclude<StreamChunk, UsageStreamChunk>;
+
+export interface TokenUsage {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadTokens: number;
+    cacheWriteTokens: number;
+}
 
 export type TimelineInputItem = OpenResponsesInputMessageItem | OpenResponsesFunctionCallOutput;
 
 export type TimelineEntry =
     | {source: 'input', item: TimelineInputItem}
-    | {source: 'output', event: OpenResponsesStreamEvent};
+    | {source: 'output', event: OpenResponsesStreamEvent}
+    | {source: 'usage', usage: TokenUsage};

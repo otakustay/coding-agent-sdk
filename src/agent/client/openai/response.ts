@@ -1,5 +1,5 @@
 import type {ChatCompletionChunk} from 'openai/resources/chat/completions';
-import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
+import type {OpenResponsesStreamEvent, OpenResponsesNonStreamingResponse} from '@openrouter/sdk/models';
 import {createIdGenerator} from '../../../utils/id.js';
 
 const nextId = createIdGenerator();
@@ -87,12 +87,17 @@ export async function* convertStreamEvents(
 ): AsyncGenerator<OpenResponsesStreamEvent, void, undefined> {
     let seq = 0;
     let nextOutputIndex = 0;
+    let lastUsage: ChatCompletionChunk['usage'] = null;
 
     // Track items: message item and per-index tool call items
     let messageItem: TrackedMessageItem | null = null;
     const toolCallItems = new Map<number, TrackedFunctionCallItem>();
 
     for await (const chunk of stream) {
+        if (chunk.usage) {
+            lastUsage = chunk.usage;
+        }
+
         const choice = chunk.choices[0];
         if (!choice) {
             continue;
@@ -185,5 +190,20 @@ export async function* convertStreamEvents(
                 yield createOutputItemDoneEvent(tracked, seq++);
             }
         }
+    }
+
+    if (lastUsage) {
+        const usage = {
+            inputTokens: lastUsage.prompt_tokens,
+            inputTokensDetails: {cachedTokens: lastUsage.prompt_tokens_details?.cached_tokens ?? 0},
+            outputTokens: lastUsage.completion_tokens,
+            outputTokensDetails: {reasoningTokens: 0},
+            totalTokens: lastUsage.total_tokens,
+        };
+        yield {
+            type: 'response.completed',
+            response: {usage} as unknown as OpenResponsesNonStreamingResponse,
+            sequenceNumber: seq,
+        };
     }
 }

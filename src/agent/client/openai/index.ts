@@ -27,6 +27,7 @@ export class OpenAIModelClient implements ModelClient {
             model: request.model,
             messages,
             stream: true,
+            stream_options: {include_usage: true},
             ...(tools.length > 0 ? {tools} : {}),
         });
 

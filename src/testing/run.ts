@@ -31,7 +31,7 @@ import {
     WorkspaceEnvProvider,
     GitStatusProvider,
 } from '../agent/index.js';
-import type {AgentWorkItem, AgentConfig} from '../agent/index.js';
+import type {AgentWorkItem, AgentConfig, AgentWorkItemUsage} from '../agent/index.js';
 import {fromScriptDirectory} from '../utils/path.js';
 
 const agentTypes: AgentConfig[] = [
@@ -179,3 +179,24 @@ for await (const update of toItemUpdateStream(stream)) {
 }
 
 console.log(JSON.stringify(state.items, null, 2));
+
+const usageItem = state.items.findLast((v: AgentWorkItem): v is AgentWorkItemUsage => v.type === 'usage');
+if (usageItem) {
+    const {usage} = usageItem;
+    const parts: string[] = [];
+    if (usage.inputTokens > 0) {
+        parts.push(`I/${usage.inputTokens}`);
+    }
+    if (usage.outputTokens > 0) {
+        parts.push(`O/${usage.outputTokens}`);
+    }
+    if (usage.cacheReadTokens > 0) {
+        parts.push(`R/${usage.cacheReadTokens}`);
+    }
+    if (usage.cacheWriteTokens > 0) {
+        parts.push(`W/${usage.cacheWriteTokens}`);
+    }
+    if (parts.length > 0) {
+        console.error(`\nTokens: ${parts.join('  ')}`);
+    }
+}

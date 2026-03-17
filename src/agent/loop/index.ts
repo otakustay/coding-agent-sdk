@@ -11,6 +11,7 @@ import type {
     AgentWorkItemToolResultInput,
     StreamChunk,
     TimelineEntry,
+    TokenUsage,
 } from './interface.js';
 import {materializeTimeline, transformTimelineToInput} from './transform.js';
 import type {QueryContextProvider, QueryState} from '../context/index.js';
@@ -230,6 +231,18 @@ export class AgentLoop {
 
             if (event.type === 'response.failed') {
                 return {error: event.response.error?.message ?? 'Response failed'};
+            }
+
+            if (event.type === 'response.completed' && event.response.usage != null) {
+                const raw = event.response.usage;
+                const usage: TokenUsage = {
+                    inputTokens: raw.inputTokens,
+                    outputTokens: raw.outputTokens,
+                    cacheReadTokens: raw.inputTokensDetails?.cachedTokens ?? 0,
+                    cacheWriteTokens: (raw as {cacheWriteTokens?: number}).cacheWriteTokens ?? 0,
+                };
+                this.timeline.push({source: 'usage', usage});
+                yield {type: 'usage', usage};
             }
 
             if (event.type === 'response.output_item.added') {

@@ -1,12 +1,12 @@
 import {Fragment, useState, useCallback} from 'react';
 import {render, Box, Text, useInput} from 'ink';
-import type {AgentWorkItem} from '../agent/loop/interface.js';
-import type {AgentLoop} from '../agent/index.js';
 import {toItemUpdateStream} from '../agent/index.js';
+import type {AgentWorkItem, AgentLoop} from '../agent/index.js';
 import {UserQuery} from './components/query.js';
 import {ReasoningOutput, ReasoningSummaryOutput} from './components/reasoning.js';
 import {TextOutput} from './components/text.js';
 import {ToolCallOutput, ToolResultInput} from './components/tool.js';
+import {UsageBar} from './components/usage.js';
 
 const SEPARATOR = '─'.repeat(60);
 
@@ -29,7 +29,7 @@ function WorkItem({item}: {item: AgentWorkItem}) {
     }
 }
 
-const HIDDEN_TYPES = new Set<AgentWorkItem['type']>(['input.system']);
+const HIDDEN_TYPES = new Set<AgentWorkItem['type']>(['input.system', 'usage']);
 
 function getItemKey(item: AgentWorkItem, i: number): string {
     if ('id' in item) {
@@ -129,10 +129,12 @@ function App({agentLoop}: {agentLoop: AgentLoop}) {
     );
 
     const visible = items.filter(item => !HIDDEN_TYPES.has(item.type));
+    const usageItem = items.findLast(item => item.type === 'usage');
 
     return (
         <Box flexDirection="column">
             <AgentOutput items={items} />
+            {usageItem && usageItem.type === 'usage' && <UsageBar usage={usageItem.usage} />}
             {!isRunning && (
                 <Box flexDirection="column">
                     {visible.length > 0 && <Text dimColor>{SEPARATOR}</Text>}

@@ -10,7 +10,7 @@ export type {AnthropicModelClientOptions} from './client/anthropic/index.js';
 export {createClient} from './client/index.js';
 export type {CreateClientOptions} from './client/index.js';
 export {toItemUpdateStream} from './stream.js';
-export type {AgentWorkItem} from './loop/interface.js';
+export type {AgentWorkItem, AgentWorkItemUsage, TokenUsage} from './loop/interface.js';
 export type {ToolExecutionContext, ToolDefinition, ToolImplementation} from './tools/interface.js';
 export {defineReadTool, createReadImplement} from './tools/read/index.js';
 export type {ReadToolParameters} from './tools/read/index.js';

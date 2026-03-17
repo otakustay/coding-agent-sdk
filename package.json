@@ -45,6 +45,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@inkjs/ui": "^2.0.0",
     "@openrouter/sdk": "^0.5.1",
     "dedent": "^1.7.1",
     "diff": "^8.0.3",

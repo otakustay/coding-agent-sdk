@@ -1,5 +1,11 @@
 import {assertNever} from '../utils/error.js';
-import type {AgentWorkItem, StreamChunk, AgentWorkItemOutputBase} from './loop/interface.js';
+import type {
+    AgentWorkItem,
+    AgentWorkItemUsage,
+    ContentStreamChunk,
+    StreamChunk,
+    AgentWorkItemOutputBase,
+} from './loop/interface.js';
 
 type UpdateItem = (items: AgentWorkItem[]) => AgentWorkItem[];
 
@@ -9,7 +15,7 @@ function findItemIndex(items: AgentWorkItem[], id: string): number {
     return items.findIndex(i => 'id' in i && i.id === id);
 }
 
-function createItemFromChunk(chunk: StreamChunk): AgentWorkItem {
+function createItemFromChunk(chunk: ContentStreamChunk): AgentWorkItem {
     switch (chunk.type) {
         case 'output.reasoning':
             return {
@@ -46,7 +52,7 @@ function createItemFromChunk(chunk: StreamChunk): AgentWorkItem {
     }
 }
 
-function mergeChunkIntoItem(item: OutputItem, chunk: StreamChunk): OutputItem {
+function mergeChunkIntoItem(item: OutputItem, chunk: ContentStreamChunk): OutputItem {
     switch (chunk.type) {
         case 'output.reasoning': {
             if (item.type !== 'output.reasoning') {
@@ -96,6 +102,17 @@ function mergeChunkIntoItem(item: OutputItem, chunk: StreamChunk): OutputItem {
 
 export async function* toItemUpdateStream(response: AsyncIterable<StreamChunk>): AsyncGenerator<UpdateItem> {
     for await (const chunk of response) {
+        if (chunk.type === 'usage') {
+            const usageItem: AgentWorkItemUsage = {type: 'usage', usage: chunk.usage};
+            yield (items: AgentWorkItem[]) => {
+                const index = items.findIndex(item => item.type === 'usage');
+                return index >= 0
+                    ? [...items.slice(0, index), usageItem, ...items.slice(index + 1)]
+                    : [...items, usageItem];
+            };
+            continue;
+        }
+
         yield (items: AgentWorkItem[]) => {
             const index = findItemIndex(items, chunk.id);
 

@@ -1,5 +1,5 @@
-import type {RawMessageStreamEvent} from '@anthropic-ai/sdk/resources/messages/messages';
-import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
+import type {RawMessageStreamEvent, MessageDeltaUsage} from '@anthropic-ai/sdk/resources/messages/messages';
+import type {OpenResponsesStreamEvent, OpenResponsesNonStreamingResponse} from '@openrouter/sdk/models';
 import {createIdGenerator} from '../../../utils/id.js';
 
 const nextId = createIdGenerator();
@@ -118,11 +118,17 @@ export async function* convertAnthropicStreamEvents(
 ): AsyncGenerator<OpenResponsesStreamEvent, void, undefined> {
     let seq = 0;
     let nextOutputIndex = 0;
+    let lastDeltaUsage: MessageDeltaUsage | null = null;
 
     // Track items by content block index
     const trackedItems = new Map<number, TrackedItem>();
 
     for await (const event of stream) {
+        if (event.type === 'message_delta') {
+            lastDeltaUsage = event.usage;
+            continue;
+        }
+
         if (event.type === 'content_block_start') {
             const block = event.content_block;
             const index = event.index;
@@ -214,5 +220,21 @@ export async function* convertAnthropicStreamEvents(
             }
             continue;
         }
+    }
+
+    if (lastDeltaUsage) {
+        const usage = {
+            inputTokens: lastDeltaUsage.input_tokens ?? 0,
+            inputTokensDetails: {cachedTokens: lastDeltaUsage.cache_read_input_tokens ?? 0},
+            outputTokens: lastDeltaUsage.output_tokens,
+            outputTokensDetails: {reasoningTokens: 0},
+            totalTokens: (lastDeltaUsage.input_tokens ?? 0) + lastDeltaUsage.output_tokens,
+            cacheWriteTokens: lastDeltaUsage.cache_creation_input_tokens ?? 0,
+        };
+        yield {
+            type: 'response.completed',
+            response: {usage} as unknown as OpenResponsesNonStreamingResponse,
+            sequenceNumber: seq,
+        };
     }
 }
