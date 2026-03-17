@@ -32,6 +32,9 @@ import {
     createTodoWriteImplement,
     defineSkillTool,
     createSkillImplement,
+    AgentsMdProvider,
+    WorkspaceEnvProvider,
+    GitStatusProvider,
 } from '../agent/index.js';
 import type {AgentConfig, SkillConfig} from '../agent/index.js';
 import {renderInteractiveLoop} from './render.js';
@@ -224,5 +227,9 @@ const skillConfigs = await loadSkillConfigs();
 const skillDefinition = await defineSkillTool(skillConfigs);
 const skillImplement = await createSkillImplement(skillConfigs);
 agentLoop.registerTool(skillDefinition, skillImplement);
+
+agentLoop.registerQueryContextProvider(new WorkspaceEnvProvider());
+agentLoop.registerQueryContextProvider(new GitStatusProvider());
+agentLoop.registerQueryContextProvider(new AgentsMdProvider());
 
 await renderInteractiveLoop(agentLoop);

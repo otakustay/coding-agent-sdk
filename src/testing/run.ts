@@ -27,6 +27,9 @@ import {
     createTaskStopImplement,
     defineTodoWriteTool,
     createTodoWriteImplement,
+    AgentsMdProvider,
+    WorkspaceEnvProvider,
+    GitStatusProvider,
 } from '../agent/index.js';
 import type {AgentWorkItem, AgentConfig} from '../agent/index.js';
 import {fromScriptDirectory} from '../utils/path.js';
@@ -160,6 +163,10 @@ loop.registerTool(taskStopDef, taskStopImpl);
 const todoWriteDef = await defineTodoWriteTool();
 const todoWriteImpl = await createTodoWriteImplement();
 loop.registerTool(todoWriteDef, todoWriteImpl);
+
+loop.registerQueryContextProvider(new WorkspaceEnvProvider());
+loop.registerQueryContextProvider(new GitStatusProvider());
+loop.registerQueryContextProvider(new AgentsMdProvider());
 
 const stream = loop.submitUserQuery(argv.query);
 

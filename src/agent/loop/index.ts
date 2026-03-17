@@ -13,6 +13,8 @@ import type {
     TimelineEntry,
 } from './interface.js';
 import {materializeTimeline, transformTimelineToInput} from './transform.js';
+import type {QueryContextProvider, QueryState} from '../context/index.js';
+import {UserQueryProvider} from '../context/index.js';
 import type {
     ToolDefinition,
     ToolImplementation,
@@ -88,6 +90,7 @@ export class AgentLoop {
     private processes = new Map<string, ProcessRecord>();
     private tasks = new Map<string, TaskRecord>();
     private processedToolCallIds = new Set<string>();
+    private queryContextProviders: QueryContextProvider[] = [new UserQueryProvider()];
     private running = false;
     /**
      * Flag whether current loop aborted externally, aborted loop will stop at next model response
@@ -143,6 +146,10 @@ export class AgentLoop {
         this.tools.set(definition.name, {definition, implement});
     }
 
+    registerQueryContextProvider(provider: QueryContextProvider): void {
+        this.queryContextProviders.splice(-1, 0, provider);
+    }
+
     /**
      * Submit a user query, stream all model turns and tool calls until completion.
      *
@@ -150,22 +157,32 @@ export class AgentLoop {
      * @yields StreamChunk - Chunks with type, id, status, and optional fields to merge
      */
     async *submitUserQuery(userQuery: string): AsyncGenerator<StreamChunk, void, undefined> {
-        this.timeline.push(createUserInputEntry(userQuery));
+        const state: QueryState = {timeline: this.timeline, model: this.model, userQuery, cwd: process.cwd()};
+
+        const parts: string[] = [];
+        for (const provider of this.queryContextProviders) {
+            const result = await provider.provide(state);
+            if (result) {
+                parts.push(result);
+            }
+        }
+
+        this.timeline.push(createUserInputEntry(parts.join('\n')));
         this.running = true;
 
         try {
-            const state = {consecutiveErrors: 0};
+            const loopState = {consecutiveErrors: 0};
             while (this.aborting === null) {
                 const {error: modelError, hasCalls} = yield* this.streamOneTurn();
 
                 if (modelError) {
-                    state.consecutiveErrors++;
-                    if (state.consecutiveErrors >= 3) {
+                    loopState.consecutiveErrors++;
+                    if (loopState.consecutiveErrors >= 3) {
                         throw new Error(modelError);
                     }
                 }
                 else {
-                    state.consecutiveErrors = 0;
+                    loopState.consecutiveErrors = 0;
                     if (!hasCalls) {
                         break;
                     }

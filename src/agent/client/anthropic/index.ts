@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import AnthropicClient from '@anthropic-ai/sdk';
 import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
 import type {ModelClient, ModelClientRequest} from '../interface.js';
 import {convertInputToAnthropicParams, convertAnthropicTools} from './request.js';
@@ -13,11 +13,11 @@ export interface AnthropicModelClientOptions {
 const DEFAULT_MAX_TOKENS = 16_384;
 
 export class AnthropicModelClient implements ModelClient {
-    private client: Anthropic;
+    private client: AnthropicClient;
     private maxTokens: number;
 
     constructor(options: AnthropicModelClientOptions) {
-        this.client = new Anthropic({
+        this.client = new AnthropicClient({
             apiKey: options.apiKey,
             ...(options.baseURL ? {baseURL: options.baseURL} : {}),
         });

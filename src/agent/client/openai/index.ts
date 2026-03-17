@@ -1,4 +1,4 @@
-import OpenAI from 'openai';
+import OpenAIClient from 'openai';
 import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
 import type {ModelClient, ModelClientRequest} from '../interface.js';
 import {convertInputToMessages, convertTools} from './request.js';
@@ -10,10 +10,10 @@ export interface OpenAIModelClientOptions {
 }
 
 export class OpenAIModelClient implements ModelClient {
-    private client: OpenAI;
+    private client: OpenAIClient;
 
     constructor(options: OpenAIModelClientOptions) {
-        this.client = new OpenAI({
+        this.client = new OpenAIClient({
             apiKey: options.apiKey,
             baseURL: options.baseURL,
         });

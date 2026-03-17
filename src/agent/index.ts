@@ -1,5 +1,7 @@
 export {AgentLoop} from './loop/index.js';
 export type {ModelClient, ModelClientRequest} from './client/interface.js';
+export type {QueryState, QueryContextProvider} from './context/index.js';
+export {UserQueryProvider, AgentsMdProvider, WorkspaceEnvProvider, GitStatusProvider} from './context/index.js';
 export {OpenRouterModelClient} from './client/openrouter/index.js';
 export type {OpenRouterModelClientOptions} from './client/openrouter/index.js';
 export {OpenAIModelClient} from './client/openai/index.js';
