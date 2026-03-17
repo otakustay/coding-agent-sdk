@@ -1,10 +1,10 @@
 import {markdownTable} from 'markdown-table';
-import {toposortReverse as sortReverse} from '@n1ru4l/toposort';
 import type {TaskListToolParameters} from './definition.js';
-import type {ToolImplementation, TaskRecord} from '../interface.js';
+import type {ToolImplementation} from '../interface.js';
+import {sortByBlocker} from './sort.js';
 
 export async function createTaskListImplement(): Promise<ToolImplementation<TaskListToolParameters>> {
-    return async (_parameters, context): Promise<string> => {
+    return async (parameters, context): Promise<string> => {
         const {tasks} = context;
 
         const allTasks = [...tasks.values()];
@@ -13,15 +13,7 @@ export async function createTaskListImplement(): Promise<ToolImplementation<Task
             return 'No tasks exist';
         }
 
-        const dependencyGraph = new Map<string, Iterable<string>>();
-        const taskMap = new Map<string, TaskRecord>();
-        for (const task of allTasks) {
-            dependencyGraph.set(task.id, task.blockedBy);
-            taskMap.set(task.id, task);
-        }
-
-        const sortedBatches = sortReverse(dependencyGraph);
-        const sortedTasks = sortedBatches.flatMap(v => [...v]).map(v => taskMap.get(v)).filter(v => !!v);
+        const sortedTasks = sortByBlocker(allTasks);
 
         const rows: string[][] = [
             ['ID', 'Subject', 'Status', 'Blocked By'],

@@ -2,10 +2,11 @@ import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
+import yargs from 'yargs';
+import {hideBin} from 'yargs/helpers';
 import {parse} from 'yaml';
-import {OpenRouter} from '@openrouter/sdk';
 import {AgentLoop} from '../agent/loop/index.js';
-import {OpenRouterModelClient} from '../agent/loop/modelClient.js';
+import {createClient} from '../agent/client.js';
 import {renderInteractiveLoop} from './render.js';
 import {
     defineReadTool,
@@ -154,14 +155,17 @@ const agentTypes: AgentConfig[] = [
     },
 ];
 
-const apiKey = process.env.OPENROUTER_API_KEY;
+const argv = await yargs(hideBin(process.argv))
+    .option('model', {type: 'string', demandOption: true, description: 'Model name to use'})
+    .parse();
 
-if (!apiKey) {
-    throw new Error('OPENROUTER_API_KEY environment variable is required');
-}
-
-const client = new OpenRouterModelClient(new OpenRouter({apiKey}));
-const agentLoop = new AgentLoop(client, 'moonshotai/kimi-k2.5');
+const clientOptions = {
+    provider: process.env.MODEL_PROVIDER,
+    apiKey: process.env.MODEL_API_KEY,
+    baseURL: process.env.MODEL_API_ENDPOINT,
+};
+const client = createClient(clientOptions);
+const agentLoop = new AgentLoop(client, argv.model);
 
 const systemPromptPath = fileURLToPath(new URL('system.txt', import.meta.url));
 if (existsSync(systemPromptPath)) {
