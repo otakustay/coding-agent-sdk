@@ -1,6 +1,6 @@
 import type {RawMessageStreamEvent} from '@anthropic-ai/sdk/resources/messages/messages';
 import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
-import {createIdGenerator} from '../../utils/id.js';
+import {createIdGenerator} from '../../../utils/id.js';
 
 const nextId = createIdGenerator();
 

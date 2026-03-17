@@ -1,8 +1,7 @@
-import {OpenRouter} from '@openrouter/sdk';
-import {OpenRouterModelClient} from './loop/modelClient.js';
-import {OpenAIModelClient} from './adapter/openai.js';
-import {AnthropicModelClient} from './adapter/anthropic.js';
-import type {ModelClient} from './loop/modelClient.js';
+import {OpenRouterModelClient} from './openrouter/index.js';
+import {OpenAIModelClient} from './openai/index.js';
+import {AnthropicModelClient} from './anthropic/index.js';
+import type {ModelClient} from './interface.js';
 
 export interface CreateClientOptions {
     provider?: string | undefined;
@@ -25,5 +24,5 @@ export function createClient(options: CreateClientOptions): ModelClient {
         return new AnthropicModelClient({apiKey, ...(baseURL ? {baseURL} : {})});
     }
 
-    return new OpenRouterModelClient(new OpenRouter({apiKey, ...(baseURL ? {baseURL} : {})}));
+    return new OpenRouterModelClient({apiKey});
 }

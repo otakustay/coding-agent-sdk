@@ -1,8 +1,8 @@
 import OpenAI from 'openai';
 import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
-import type {ModelClient, ModelClientRequest} from '../loop/modelClient.js';
-import {convertInputToMessages, convertTools} from './requestConvert.js';
-import {convertStreamEvents} from './responseConvert.js';
+import type {ModelClient, ModelClientRequest} from '../interface.js';
+import {convertInputToMessages, convertTools} from './request.js';
+import {convertStreamEvents} from './response.js';
 
 export interface OpenAIModelClientOptions {
     apiKey: string;

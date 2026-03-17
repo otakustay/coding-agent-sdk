@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
-import type {ModelClient, ModelClientRequest} from '../loop/modelClient.js';
-import {convertInputToAnthropicParams, convertAnthropicTools} from './anthropicRequestConvert.js';
-import {convertAnthropicStreamEvents} from './anthropicResponseConvert.js';
+import type {ModelClient, ModelClientRequest} from '../interface.js';
+import {convertInputToAnthropicParams, convertAnthropicTools} from './request.js';
+import {convertAnthropicStreamEvents} from './response.js';
 
 export interface AnthropicModelClientOptions {
     apiKey: string;

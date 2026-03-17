@@ -4,7 +4,7 @@ import type {
     OpenResponsesRequestToolFunction,
     OpenResponsesStreamEvent,
 } from '@openrouter/sdk/models';
-import type {ModelClient} from './modelClient.js';
+import type {ModelClient} from '../client/interface.js';
 import type {
     AgentWorkItem,
     AgentWorkItemToolCallOutput,
