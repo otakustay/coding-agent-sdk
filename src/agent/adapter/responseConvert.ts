@@ -1,5 +1,8 @@
 import type {ChatCompletionChunk} from 'openai/resources/chat/completions';
 import type {OpenResponsesStreamEvent} from '@openrouter/sdk/models';
+import {createIdGenerator} from '../../utils/id.js';
+
+const nextId = createIdGenerator();
 
 interface TrackedMessageItem {
     kind: 'message';
@@ -102,7 +105,7 @@ export async function* convertStreamEvents(
             if (!messageItem) {
                 messageItem = {
                     kind: 'message',
-                    id: `msg_${nextOutputIndex}`,
+                    id: nextId(),
                     outputIndex: nextOutputIndex++,
                     content: '',
                 };
@@ -125,7 +128,7 @@ export async function* convertStreamEvents(
             if (!messageItem) {
                 messageItem = {
                     kind: 'message',
-                    id: `msg_${nextOutputIndex}`,
+                    id: nextId(),
                     outputIndex: nextOutputIndex++,
                     content: '',
                 };
@@ -148,7 +151,7 @@ export async function* convertStreamEvents(
                 if (!tracked) {
                     tracked = {
                         kind: 'function_call',
-                        id: `fc_${nextOutputIndex}`,
+                        id: nextId(),
                         callId: tc.id ?? `call_${tc.index}`,
                         outputIndex: nextOutputIndex++,
                         name: tc.function?.name ?? '',

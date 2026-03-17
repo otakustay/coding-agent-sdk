@@ -189,9 +189,18 @@ export class AgentLoop {
 
     private async *streamModelResponse(): AsyncGenerator<StreamChunk, {error?: string}, undefined> {
         const toolDefinitions = this.buildToolDefinitions();
+        const input = transformTimelineToInput(this.timeline);
+
+        const hasSystem = Array.isArray(input)
+            ? input.some(v => typeof v === 'object' && v.type === 'message' && v.role === 'system')
+            : false;
+        if (!hasSystem) {
+            throw new Error('No system prompt set. Call setSystemPrompt() before submitting queries.');
+        }
+
         const response = this.client.sendStream({
             model: this.model,
-            input: transformTimelineToInput(this.timeline),
+            input,
             tools: toolDefinitions,
         });
 

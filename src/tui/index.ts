@@ -5,10 +5,9 @@ import {fileURLToPath} from 'node:url';
 import yargs from 'yargs';
 import {hideBin} from 'yargs/helpers';
 import {parse} from 'yaml';
-import {AgentLoop} from '../agent/loop/index.js';
-import {createClient} from '../agent/client.js';
-import {renderInteractiveLoop} from './render.js';
 import {
+    AgentLoop,
+    createClient,
     defineReadTool,
     createReadImplement,
     defineWriteTool,
@@ -33,8 +32,9 @@ import {
     createTodoWriteImplement,
     defineSkillTool,
     createSkillImplement,
-} from '../agent/tools/index.js';
-import type {AgentConfig, SkillConfig} from '../agent/tools/index.js';
+} from '../agent/index.js';
+import type {AgentConfig, SkillConfig} from '../agent/index.js';
+import {renderInteractiveLoop} from './render.js';
 
 function parseSkillFile(fileContent: string, directory: string): SkillConfig | null {
     if (!fileContent.startsWith('---\n')) {
