@@ -1,8 +1,10 @@
 import type {ChatCompletionChunk} from 'openai/resources/chat/completions';
 import type {OpenResponsesStreamEvent, OpenResponsesNonStreamingResponse} from '@openrouter/sdk/models';
-import {createIdGenerator} from '../../../utils/id.js';
+import {createIdGenerator, createIncrementCounter} from '../../../utils/id.js';
 
 const nextId = createIdGenerator();
+const seq = createIncrementCounter();
+const nextOutputIndex = createIncrementCounter();
 
 interface TrackedMessageItem {
     kind: 'message';
@@ -21,6 +23,16 @@ interface TrackedFunctionCallItem {
 }
 
 type TrackedItem = TrackedMessageItem | TrackedFunctionCallItem;
+
+function getOrCreate<K, V>(map: Map<K, V>, key: K, factory: () => V): [V, boolean] {
+    const existing = map.get(key);
+    if (existing !== undefined) {
+        return [existing, false];
+    }
+    const item = factory();
+    map.set(key, item);
+    return [item, true];
+}
 
 function createOutputItemAddedEvent(item: TrackedItem, seq: number): OpenResponsesStreamEvent {
     if (item.kind === 'message') {
@@ -82,20 +94,22 @@ function createOutputItemDoneEvent(item: TrackedItem, seq: number): OpenResponse
     };
 }
 
+interface StreamState {
+    lastUsage: ChatCompletionChunk['usage'];
+    messageItem: TrackedMessageItem | null;
+}
+
 export async function* convertStreamEvents(
     stream: AsyncIterable<ChatCompletionChunk>,
 ): AsyncGenerator<OpenResponsesStreamEvent, void, undefined> {
-    let seq = 0;
-    let nextOutputIndex = 0;
-    let lastUsage: ChatCompletionChunk['usage'] = null;
+    const state: StreamState = {lastUsage: null, messageItem: null};
 
     // Track items: message item and per-index tool call items
-    let messageItem: TrackedMessageItem | null = null;
     const toolCallItems = new Map<number, TrackedFunctionCallItem>();
 
     for await (const chunk of stream) {
         if (chunk.usage) {
-            lastUsage = chunk.usage;
+            state.lastUsage = chunk.usage;
         }
 
         const choice = chunk.choices[0];
@@ -107,63 +121,61 @@ export async function* convertStreamEvents(
 
         // Handle text content
         if (delta.content) {
-            if (!messageItem) {
-                messageItem = {
+            if (!state.messageItem) {
+                state.messageItem = {
                     kind: 'message',
                     id: nextId(),
-                    outputIndex: nextOutputIndex++,
+                    outputIndex: nextOutputIndex(),
                     content: '',
                 };
-                yield createOutputItemAddedEvent(messageItem, seq++);
+                yield createOutputItemAddedEvent(state.messageItem, seq());
             }
-            messageItem.content += delta.content;
+            state.messageItem.content += delta.content;
             yield {
                 type: 'response.output_text.delta',
-                itemId: messageItem.id,
-                outputIndex: messageItem.outputIndex,
+                itemId: state.messageItem.id,
+                outputIndex: state.messageItem.outputIndex,
                 contentIndex: 0,
                 delta: delta.content,
                 logprobs: [],
-                sequenceNumber: seq++,
+                sequenceNumber: seq(),
             };
         }
 
         // Handle refusal
         if (delta.refusal) {
-            if (!messageItem) {
-                messageItem = {
+            if (!state.messageItem) {
+                state.messageItem = {
                     kind: 'message',
                     id: nextId(),
-                    outputIndex: nextOutputIndex++,
+                    outputIndex: nextOutputIndex(),
                     content: '',
                 };
-                yield createOutputItemAddedEvent(messageItem, seq++);
+                yield createOutputItemAddedEvent(state.messageItem, seq());
             }
             yield {
                 type: 'response.refusal.delta',
-                itemId: messageItem.id,
-                outputIndex: messageItem.outputIndex,
+                itemId: state.messageItem.id,
+                outputIndex: state.messageItem.outputIndex,
                 contentIndex: 0,
                 delta: delta.refusal,
-                sequenceNumber: seq++,
+                sequenceNumber: seq(),
             };
         }
 
         // Handle tool calls
         if (delta.tool_calls) {
             for (const tc of delta.tool_calls) {
-                let tracked = toolCallItems.get(tc.index);
-                if (!tracked) {
-                    tracked = {
-                        kind: 'function_call',
-                        id: nextId(),
-                        callId: tc.id ?? `call_${tc.index}`,
-                        outputIndex: nextOutputIndex++,
-                        name: tc.function?.name ?? '',
-                        arguments: '',
-                    };
-                    toolCallItems.set(tc.index, tracked);
-                    yield createOutputItemAddedEvent(tracked, seq++);
+                const [tracked, isNew] = getOrCreate(toolCallItems, tc.index, () => ({
+                    kind: 'function_call' as const,
+                    id: nextId(),
+                    callId: tc.id ?? `call_${tc.index}`,
+                    outputIndex: nextOutputIndex(),
+                    name: tc.function?.name ?? '',
+                    arguments: '',
+                }));
+                if (isNew) {
+                    yield createOutputItemAddedEvent(tracked, seq());
                 }
                 if (tc.function?.name && !tracked.name) {
                     tracked.name = tc.function.name;
@@ -175,7 +187,7 @@ export async function* convertStreamEvents(
                         itemId: tracked.id,
                         outputIndex: tracked.outputIndex,
                         delta: tc.function.arguments,
-                        sequenceNumber: seq++,
+                        sequenceNumber: seq(),
                     };
                 }
             }
@@ -183,27 +195,27 @@ export async function* convertStreamEvents(
 
         // Handle finish
         if (choice.finish_reason) {
-            if (messageItem) {
-                yield createOutputItemDoneEvent(messageItem, seq++);
+            if (state.messageItem) {
+                yield createOutputItemDoneEvent(state.messageItem, seq());
             }
             for (const tracked of toolCallItems.values()) {
-                yield createOutputItemDoneEvent(tracked, seq++);
+                yield createOutputItemDoneEvent(tracked, seq());
             }
         }
     }
 
-    if (lastUsage) {
+    if (state.lastUsage) {
         const usage = {
-            inputTokens: lastUsage.prompt_tokens,
-            inputTokensDetails: {cachedTokens: lastUsage.prompt_tokens_details?.cached_tokens ?? 0},
-            outputTokens: lastUsage.completion_tokens,
+            inputTokens: state.lastUsage.prompt_tokens,
+            inputTokensDetails: {cachedTokens: state.lastUsage.prompt_tokens_details?.cached_tokens ?? 0},
+            outputTokens: state.lastUsage.completion_tokens,
             outputTokensDetails: {reasoningTokens: 0},
-            totalTokens: lastUsage.total_tokens,
+            totalTokens: state.lastUsage.total_tokens,
         };
         yield {
             type: 'response.completed',
             response: {usage} as unknown as OpenResponsesNonStreamingResponse,
-            sequenceNumber: seq,
+            sequenceNumber: seq(),
         };
     }
 }

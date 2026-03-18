@@ -26,3 +26,12 @@ export function truncateText(text: string, options: TruncateTextOptions = {}): s
 
     return perLineTruncated.join('\n');
 }
+
+export function parseJsonSafe(text: string, fallback: unknown = {}): unknown {
+    try {
+        return JSON.parse(text);
+    }
+    catch {
+        return fallback;
+    }
+}

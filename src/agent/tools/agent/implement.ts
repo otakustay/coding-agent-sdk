@@ -26,6 +26,16 @@ function formatAgentBackgroundNotification(agentId: string, finishReason: Exclud
     `;
 }
 
+async function waitAgentTask(agent: AgentLoop, query: string): Promise<Exclude<FinishReason, 'stop'>> {
+    try {
+        await agent.submitUserQueryForFinalMessageText(query);
+        return 'success';
+    }
+    catch {
+        return 'exception';
+    }
+}
+
 async function resumeAgent({agentId, query, subagents}: AgentRunContext): Promise<string> {
     const record = subagents.get(agentId);
     if (!record) {
@@ -64,14 +74,7 @@ async function runBackgroundAgent({agentId, query, subagents}: AgentRunContext):
     if (!initialRecord) {
         return;
     }
-    let finishReason: Exclude<FinishReason, 'stop'>;
-    try {
-        await initialRecord.agent.submitUserQueryForFinalMessageText(query);
-        finishReason = 'success';
-    }
-    catch {
-        finishReason = 'exception';
-    }
+    const finishReason = await waitAgentTask(initialRecord.agent, query);
     const record = subagents.get(agentId);
     if (!record || record.status === 'idle') {
         return;

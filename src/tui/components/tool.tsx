@@ -1,4 +1,5 @@
 import {Box, Text} from 'ink';
+import {Spinner} from '@inkjs/ui';
 import type {AgentWorkItem} from '../../agent/loop/interface.js';
 
 function ArgumentBlock({argKey, argValue}: {argKey: string, argValue: unknown}) {
@@ -39,7 +40,11 @@ export function ToolCallOutput({item}: {item: Extract<AgentWorkItem, {type: 'out
                 <Text color="yellow">{'⚙ '}</Text>
                 <Text color="yellow" bold>{item.name}</Text>
                 {item.status === 'open'
-                    ? <Text dimColor>{' (running…)'}</Text>
+                    ? (
+                        <Box marginLeft={1}>
+                            <Spinner />
+                        </Box>
+                    )
                     : <Text color="green">{' ✓'}</Text>}
             </Box>
             {parsedArgs && Object.keys(parsedArgs).length > 0 && (

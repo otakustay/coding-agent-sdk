@@ -1,5 +1,6 @@
 import {Fragment, useState, useCallback} from 'react';
-import {render, Box, Text, useInput} from 'ink';
+import {render, Box, Text} from 'ink';
+import {TextInput} from '@inkjs/ui';
 import {toItemUpdateStream} from '../agent/index.js';
 import type {AgentWorkItem, AgentLoop} from '../agent/index.js';
 import {UserQuery} from './components/query.js';
@@ -59,26 +60,8 @@ function AgentOutput({items}: {items: AgentWorkItem[]}) {
     );
 }
 
-function InputPrompt({value}: {value: string}) {
-    const placeholder = 'Ask anything and get luck';
-    return (
-        <Box>
-            <Text bold color="green">{'❯ '}</Text>
-            {value
-                ? (
-                    <>
-                        <Text>{value}</Text>
-                        <Text inverse>{' '}</Text>
-                    </>
-                )
-                : <Text dimColor>{placeholder}</Text>}
-        </Box>
-    );
-}
-
 function App({agentLoop}: {agentLoop: AgentLoop}) {
     const [items, setItems] = useState<AgentWorkItem[]>([]);
-    const [inputValue, setInputValue] = useState('');
     const [isRunning, setIsRunning] = useState(false);
 
     const submitQuery = useCallback(
@@ -105,29 +88,6 @@ function App({agentLoop}: {agentLoop: AgentLoop}) {
         [agentLoop]
     );
 
-    useInput(
-        (input, key) => {
-            if (isRunning) {
-                return;
-            }
-
-            if (key.return) {
-                submitQuery(inputValue);
-                setInputValue('');
-                return;
-            }
-
-            if (key.backspace || key.delete) {
-                setInputValue(v => v.slice(0, -1));
-                return;
-            }
-
-            if (input && !key.ctrl && !key.meta) {
-                setInputValue(v => v + input);
-            }
-        }
-    );
-
     const visible = items.filter(item => !HIDDEN_TYPES.has(item.type));
     const usageItem = items.findLast(item => item.type === 'usage');
 
@@ -138,7 +98,10 @@ function App({agentLoop}: {agentLoop: AgentLoop}) {
             {!isRunning && (
                 <Box flexDirection="column">
                     {visible.length > 0 && <Text dimColor>{SEPARATOR}</Text>}
-                    <InputPrompt value={inputValue} />
+                    <Box>
+                        <Text bold color="green">{'❯ '}</Text>
+                        <TextInput placeholder="Ask anything and get luck" onSubmit={submitQuery} />
+                    </Box>
                 </Box>
             )}
         </Box>

@@ -1,8 +1,10 @@
 import type {RawMessageStreamEvent, MessageDeltaUsage} from '@anthropic-ai/sdk/resources/messages/messages';
 import type {OpenResponsesStreamEvent, OpenResponsesNonStreamingResponse} from '@openrouter/sdk/models';
-import {createIdGenerator} from '../../../utils/id.js';
+import {createIdGenerator, createIncrementCounter} from '../../../utils/id.js';
 
 const nextId = createIdGenerator();
+const nextOutputIndex = createIncrementCounter();
+const seq = createIncrementCounter();
 
 interface TrackedTextItem {
     kind: 'message';
@@ -113,19 +115,21 @@ function createOutputItemDoneEvent(item: TrackedItem, seq: number): OpenResponse
     };
 }
 
+interface StreamState {
+    lastDeltaUsage: MessageDeltaUsage | null;
+}
+
 export async function* convertAnthropicStreamEvents(
     stream: AsyncIterable<RawMessageStreamEvent>,
 ): AsyncGenerator<OpenResponsesStreamEvent, void, undefined> {
-    let seq = 0;
-    let nextOutputIndex = 0;
-    let lastDeltaUsage: MessageDeltaUsage | null = null;
+    const state: StreamState = {lastDeltaUsage: null};
 
     // Track items by content block index
     const trackedItems = new Map<number, TrackedItem>();
 
     for await (const event of stream) {
         if (event.type === 'message_delta') {
-            lastDeltaUsage = event.usage;
+            state.lastDeltaUsage = event.usage;
             continue;
         }
 
@@ -137,33 +141,33 @@ export async function* convertAnthropicStreamEvents(
                 const item: TrackedTextItem = {
                     kind: 'message',
                     id: nextId(),
-                    outputIndex: nextOutputIndex++,
+                    outputIndex: nextOutputIndex(),
                     content: '',
                 };
                 trackedItems.set(index, item);
-                yield createOutputItemAddedEvent(item, seq++);
+                yield createOutputItemAddedEvent(item, seq());
             }
             else if (block.type === 'tool_use') {
                 const item: TrackedFunctionCallItem = {
                     kind: 'function_call',
                     id: nextId(),
                     callId: block.id,
-                    outputIndex: nextOutputIndex++,
+                    outputIndex: nextOutputIndex(),
                     name: block.name,
                     arguments: '',
                 };
                 trackedItems.set(index, item);
-                yield createOutputItemAddedEvent(item, seq++);
+                yield createOutputItemAddedEvent(item, seq());
             }
             else if (block.type === 'thinking') {
                 const item: TrackedReasoningItem = {
                     kind: 'reasoning',
                     id: nextId(),
-                    outputIndex: nextOutputIndex++,
+                    outputIndex: nextOutputIndex(),
                     content: '',
                 };
                 trackedItems.set(index, item);
-                yield createOutputItemAddedEvent(item, seq++);
+                yield createOutputItemAddedEvent(item, seq());
             }
             continue;
         }
@@ -185,7 +189,7 @@ export async function* convertAnthropicStreamEvents(
                     contentIndex: 0,
                     delta: delta.text,
                     logprobs: [],
-                    sequenceNumber: seq++,
+                    sequenceNumber: seq(),
                 };
             }
             else if (delta.type === 'input_json_delta' && tracked.kind === 'function_call') {
@@ -195,7 +199,7 @@ export async function* convertAnthropicStreamEvents(
                     itemId: tracked.id,
                     outputIndex: tracked.outputIndex,
                     delta: delta.partial_json,
-                    sequenceNumber: seq++,
+                    sequenceNumber: seq(),
                 };
             }
             else if (delta.type === 'thinking_delta' && tracked.kind === 'reasoning') {
@@ -206,7 +210,7 @@ export async function* convertAnthropicStreamEvents(
                     outputIndex: tracked.outputIndex,
                     contentIndex: 0,
                     delta: delta.thinking,
-                    sequenceNumber: seq++,
+                    sequenceNumber: seq(),
                 };
             }
             continue;
@@ -215,26 +219,26 @@ export async function* convertAnthropicStreamEvents(
         if (event.type === 'content_block_stop') {
             const tracked = trackedItems.get(event.index);
             if (tracked) {
-                yield createOutputItemDoneEvent(tracked, seq++);
+                yield createOutputItemDoneEvent(tracked, seq());
                 trackedItems.delete(event.index);
             }
             continue;
         }
     }
 
-    if (lastDeltaUsage) {
+    if (state.lastDeltaUsage) {
         const usage = {
-            inputTokens: lastDeltaUsage.input_tokens ?? 0,
-            inputTokensDetails: {cachedTokens: lastDeltaUsage.cache_read_input_tokens ?? 0},
-            outputTokens: lastDeltaUsage.output_tokens,
+            inputTokens: state.lastDeltaUsage.input_tokens ?? 0,
+            inputTokensDetails: {cachedTokens: state.lastDeltaUsage.cache_read_input_tokens ?? 0},
+            outputTokens: state.lastDeltaUsage.output_tokens,
             outputTokensDetails: {reasoningTokens: 0},
-            totalTokens: (lastDeltaUsage.input_tokens ?? 0) + lastDeltaUsage.output_tokens,
-            cacheWriteTokens: lastDeltaUsage.cache_creation_input_tokens ?? 0,
+            totalTokens: (state.lastDeltaUsage.input_tokens ?? 0) + state.lastDeltaUsage.output_tokens,
+            cacheWriteTokens: state.lastDeltaUsage.cache_creation_input_tokens ?? 0,
         };
         yield {
             type: 'response.completed',
             response: {usage} as unknown as OpenResponsesNonStreamingResponse,
-            sequenceNumber: seq,
+            sequenceNumber: seq(),
         };
     }
 }

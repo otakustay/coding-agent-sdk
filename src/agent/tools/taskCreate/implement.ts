@@ -1,11 +1,11 @@
 import type {TaskCreateToolParameters} from './definition.js';
 import type {ToolImplementation, TaskRecord} from '../interface.js';
+import {createIncrementCounter} from '../../../utils/id.js';
 
-let taskIdCounter = 0;
+const nextTaskId = createIncrementCounter(0);
 
 function generateTaskId(): string {
-    taskIdCounter++;
-    return taskIdCounter.toString();
+    return nextTaskId().toString();
 }
 
 export async function createTaskCreateImplement(): Promise<ToolImplementation<TaskCreateToolParameters>> {

@@ -1,4 +1,5 @@
 import {Box, Text} from 'ink';
+import {Spinner} from '@inkjs/ui';
 import type {AgentWorkItem} from '../../agent/loop/interface.js';
 import {Markdown} from './markdown.js';
 
@@ -7,7 +8,9 @@ export function ReasoningOutput({item}: {item: Extract<AgentWorkItem, {type: 'ou
 
     return (
         <Box flexDirection="column" borderStyle="round" borderColor="gray">
-            <Text dimColor bold>Thinking{item.status === 'open' ? '…' : ''}</Text>
+            {item.status === 'open'
+                ? <Spinner label="Thinking" />
+                : <Text dimColor bold>Thinking</Text>}
             <Markdown content={text} dimColor />
         </Box>
     );

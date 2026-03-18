@@ -5,6 +5,17 @@ import type {QueryContextProvider, QueryState} from './interface.js';
 
 const execAsync = util.promisify(childProcess.exec);
 
+async function resolveMainBranch(options: {cwd: string}): Promise<string> {
+    try {
+        const {stdout} = await execAsync('git symbolic-ref refs/remotes/origin/HEAD --short', options);
+        return stdout.trim().replace('origin/', '');
+    }
+    catch {
+        // origin HEAD not configured, skip
+        return '';
+    }
+}
+
 export class GitStatusProvider implements QueryContextProvider {
     async provide(state: QueryState): Promise<string> {
         const options = {cwd: state.cwd};
@@ -12,17 +23,7 @@ export class GitStatusProvider implements QueryContextProvider {
             const {stdout: branchOutput} = await execAsync('git rev-parse --abbrev-ref HEAD', options);
             const branch = branchOutput.trim();
 
-            let mainBranch = '';
-            try {
-                const {stdout: mainOutput} = await execAsync(
-                    'git symbolic-ref refs/remotes/origin/HEAD --short',
-                    options
-                );
-                mainBranch = mainOutput.trim().replace('origin/', '');
-            }
-            catch {
-                // origin HEAD not configured, skip
-            }
+            const mainBranch = await resolveMainBranch(options);
 
             const {stdout: statusOutput} = await execAsync('git status --short', options);
             const status = statusOutput.trim();

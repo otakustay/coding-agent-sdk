@@ -12,6 +12,10 @@ interface AssistantGroup {
     toolCalls: Array<{id: string, name: string, arguments: string}>;
 }
 
+interface IterationState {
+    pendingGroup: AssistantGroup | null;
+}
+
 function isInputMessageItem(item: unknown): item is OpenResponsesInputMessageItem {
     const v = item as Record<string, unknown>;
     return v.type === 'message' || (v.role !== undefined && v.type !== 'function_call_output');
@@ -63,28 +67,28 @@ export function convertInputToMessages(input: OpenResponsesInput): ChatCompletio
     }
 
     const messages: ChatCompletionMessageParam[] = [];
-    let pendingGroup: AssistantGroup | null = null;
+    const state: IterationState = {pendingGroup: null};
 
     for (const item of input) {
         // Assistant message or function_call -> group them
         if (isAssistantMessage(item)) {
-            if (!pendingGroup) {
-                pendingGroup = {content: '', toolCalls: []};
+            if (!state.pendingGroup) {
+                state.pendingGroup = {content: '', toolCalls: []};
             }
             const text = item
                 .content
                 .filter(p => p.type === 'output_text')
                 .map(p => (p as {text: string}).text)
                 .join('');
-            pendingGroup.content += text;
+            state.pendingGroup.content += text;
             continue;
         }
 
         if (isFunctionCall(item)) {
-            if (!pendingGroup) {
-                pendingGroup = {content: '', toolCalls: []};
+            if (!state.pendingGroup) {
+                state.pendingGroup = {content: '', toolCalls: []};
             }
-            pendingGroup.toolCalls.push({
+            state.pendingGroup.toolCalls.push({
                 id: item.callId ?? item.id ?? '',
                 name: item.name ?? '',
                 arguments: item.arguments ?? '',
@@ -93,9 +97,9 @@ export function convertInputToMessages(input: OpenResponsesInput): ChatCompletio
         }
 
         // Non-assistant item -> flush any pending assistant group
-        if (pendingGroup) {
-            flushAssistantGroup(pendingGroup, messages);
-            pendingGroup = null;
+        if (state.pendingGroup) {
+            flushAssistantGroup(state.pendingGroup, messages);
+            state.pendingGroup = null;
         }
 
         if (isFunctionCallOutput(item)) {
@@ -123,8 +127,8 @@ export function convertInputToMessages(input: OpenResponsesInput): ChatCompletio
     }
 
     // Flush trailing assistant group
-    if (pendingGroup) {
-        flushAssistantGroup(pendingGroup, messages);
+    if (state.pendingGroup) {
+        flushAssistantGroup(state.pendingGroup, messages);
     }
 
     return messages;

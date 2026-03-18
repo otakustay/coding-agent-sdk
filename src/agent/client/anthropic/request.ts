@@ -6,10 +6,18 @@ import type {
     ResponsesOutputMessage,
     ResponsesOutputItemFunctionCall,
 } from '@openrouter/sdk/models';
+import {parseJsonSafe} from '../../../utils/string.js';
 
 interface AssistantGroup {
     content: string;
     toolUses: Array<{id: string, name: string, input: unknown}>;
+}
+
+interface IterationState {
+    system: string | undefined;
+    messages: MessageParam[];
+    pendingGroup: AssistantGroup | null;
+    pendingToolResults: Array<{toolUseId: string, content: string}>;
 }
 
 function isInputMessageItem(item: unknown): item is OpenResponsesInputMessageItem {
@@ -75,45 +83,41 @@ export function convertInputToAnthropicParams(input: OpenResponsesInput): Anthro
         return {system: undefined, messages: [{role: 'user', content: input}]};
     }
 
-    let system: string | undefined;
-    const messages: MessageParam[] = [];
-    let pendingGroup: AssistantGroup | null = null;
-    let pendingToolResults: Array<{toolUseId: string, content: string}> = [];
+    const state: IterationState = {
+        system: undefined,
+        messages: [],
+        pendingGroup: null,
+        pendingToolResults: [],
+    };
 
     for (const item of input) {
         if (isAssistantMessage(item)) {
             // Flush pending tool results before assistant group
-            flushToolResults(pendingToolResults, messages);
-            pendingToolResults = [];
+            flushToolResults(state.pendingToolResults, state.messages);
+            state.pendingToolResults = [];
 
-            if (!pendingGroup) {
-                pendingGroup = {content: '', toolUses: []};
+            if (!state.pendingGroup) {
+                state.pendingGroup = {content: '', toolUses: []};
             }
             const text = item
                 .content
                 .filter(p => p.type === 'output_text')
                 .map(p => (p as {text: string}).text)
                 .join('');
-            pendingGroup.content += text;
+            state.pendingGroup.content += text;
             continue;
         }
 
         if (isFunctionCall(item)) {
             // Flush pending tool results before assistant group
-            flushToolResults(pendingToolResults, messages);
-            pendingToolResults = [];
+            flushToolResults(state.pendingToolResults, state.messages);
+            state.pendingToolResults = [];
 
-            if (!pendingGroup) {
-                pendingGroup = {content: '', toolUses: []};
+            if (!state.pendingGroup) {
+                state.pendingGroup = {content: '', toolUses: []};
             }
-            let parsedInput: unknown = {};
-            try {
-                parsedInput = JSON.parse(item.arguments ?? '{}');
-            }
-            catch {
-                parsedInput = {};
-            }
-            pendingGroup.toolUses.push({
+            const parsedInput = parseJsonSafe(item.arguments ?? '{}');
+            state.pendingGroup.toolUses.push({
                 id: item.callId ?? item.id ?? '',
                 name: item.name ?? '',
                 input: parsedInput,
@@ -122,39 +126,39 @@ export function convertInputToAnthropicParams(input: OpenResponsesInput): Anthro
         }
 
         // Non-assistant, non-function-call item: flush pending assistant group
-        if (pendingGroup) {
-            flushAssistantGroup(pendingGroup, messages);
-            pendingGroup = null;
+        if (state.pendingGroup) {
+            flushAssistantGroup(state.pendingGroup, state.messages);
+            state.pendingGroup = null;
         }
 
         if (isFunctionCallOutput(item)) {
-            pendingToolResults.push({toolUseId: item.callId, content: item.output});
+            state.pendingToolResults.push({toolUseId: item.callId, content: item.output});
             continue;
         }
 
         // Flush pending tool results before non-tool-result messages
-        flushToolResults(pendingToolResults, messages);
-        pendingToolResults = [];
+        flushToolResults(state.pendingToolResults, state.messages);
+        state.pendingToolResults = [];
 
         if (isInputMessageItem(item)) {
             const role = item.role;
             const text = extractTextFromContent(item.content);
             if (role === 'system' || role === 'developer') {
-                system = text;
+                state.system = text;
             }
             else {
-                messages.push({role: 'user', content: text});
+                state.messages.push({role: 'user', content: text});
             }
         }
     }
 
     // Flush trailing
-    if (pendingGroup) {
-        flushAssistantGroup(pendingGroup, messages);
+    if (state.pendingGroup) {
+        flushAssistantGroup(state.pendingGroup, state.messages);
     }
-    flushToolResults(pendingToolResults, messages);
+    flushToolResults(state.pendingToolResults, state.messages);
 
-    return {system, messages};
+    return {system: state.system, messages: state.messages};
 }
 
 export function convertAnthropicTools(tools: OpenResponsesRequestToolFunction[]): Tool[] {
