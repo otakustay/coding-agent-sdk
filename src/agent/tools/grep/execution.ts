@@ -1,12 +1,31 @@
 import path from 'node:path';
-import type {GrepToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
 import {runRgCommand} from './command.js';
 
-const MAX_MATCHES = 100;
+export interface GrepToolParameters {
+    pattern: string;
+    path?: string;
+    glob?: string;
+    output_mode?: 'content' | 'files_with_matches' | 'count';
+    '-B'?: number;
+    '-A'?: number;
+    '-C'?: number;
+    '-n'?: boolean;
+    '-i'?: boolean;
+    type?: string;
+    head_limit?: number;
+    offset?: number;
+    multiline?: boolean;
+}
 
-export async function createGrepImplement(): Promise<ToolImplementation<GrepToolParameters>> {
-    return async (parameters): Promise<string> => {
+export class GrepToolExecution {
+    private static readonly MAX_MATCHES = 100;
+    private readonly parameters: GrepToolParameters;
+
+    constructor(parameters: GrepToolParameters) {
+        this.parameters = parameters;
+    }
+
+    async run(): Promise<string> {
         const {
             pattern,
             path: searchPath,
@@ -21,7 +40,7 @@ export async function createGrepImplement(): Promise<ToolImplementation<GrepTool
             head_limit: headLimit,
             offset = 0,
             multiline,
-        } = parameters;
+        } = this.parameters;
 
         const args: string[] = [];
 
@@ -61,11 +80,11 @@ export async function createGrepImplement(): Promise<ToolImplementation<GrepTool
         }
 
         if (outputMode !== 'content') {
-            args.push('--max-count', MAX_MATCHES.toString());
+            args.push('--max-count', GrepToolExecution.MAX_MATCHES.toString());
         }
 
         args.push('--', pattern, path.resolve(searchPath ?? '.'));
 
         return runRgCommand({args, outputMode, headLimit, offset, showLineNumbers});
-    };
+    }
 }

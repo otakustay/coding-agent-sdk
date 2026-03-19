@@ -5,28 +5,17 @@ import {
     AgentLoop,
     toItemUpdateStream,
     createClient,
-    defineReadTool,
-    createReadImplement,
-    defineWriteTool,
-    createWriteImplement,
-    defineListTool,
-    createListImplement,
-    defineEditTool,
-    createEditImplement,
-    defineBashTool,
-    createBashImplement,
-    defineGrepTool,
-    createGrepImplement,
-    defineGlobTool,
-    createGlobImplement,
-    defineAgentTool,
-    createAgentImplement,
-    defineTaskOutputTool,
-    createTaskOutputImplement,
-    defineTaskStopTool,
-    createTaskStopImplement,
-    defineTodoWriteTool,
-    createTodoWriteImplement,
+    ReadTool,
+    WriteTool,
+    ListTool,
+    EditTool,
+    BashTool,
+    GrepTool,
+    GlobTool,
+    AgentTool,
+    TaskOutputTool,
+    TaskStopTool,
+    TodoWriteTool,
     AgentsMdProvider,
     WorkspaceEnvProvider,
     GitStatusProvider,
@@ -55,21 +44,10 @@ const agentTypes: AgentConfig[] = [
                 'You are an Explore agent specialized for fast codebase exploration. Focus on finding files, searching code, and answering questions about how the codebase works. Be concise and efficient in your exploration.'
             );
 
-            const readDefinition = await defineReadTool();
-            const readImplement = await createReadImplement();
-            agentLoop.registerTool(readDefinition, readImplement);
-
-            const listDefinition = await defineListTool();
-            const listImplement = await createListImplement();
-            agentLoop.registerTool(listDefinition, listImplement);
-
-            const globDefinition = await defineGlobTool();
-            const globImplement = await createGlobImplement();
-            agentLoop.registerTool(globDefinition, globImplement);
-
-            const grepDefinition = await defineGrepTool();
-            const grepImplement = await createGrepImplement();
-            agentLoop.registerTool(grepDefinition, grepImplement);
+            agentLoop.registerTool(await ReadTool.create());
+            agentLoop.registerTool(await ListTool.create());
+            agentLoop.registerTool(await GlobTool.create());
+            agentLoop.registerTool(await GrepTool.create());
         },
     },
     {
@@ -92,25 +70,11 @@ const agentTypes: AgentConfig[] = [
                     + 'Return what you found — no need to explain why it answers the query.'
             );
 
-            const readDefinition = await defineReadTool();
-            const readImplement = await createReadImplement();
-            agentLoop.registerTool(readDefinition, readImplement);
-
-            const listDefinition = await defineListTool();
-            const listImplement = await createListImplement();
-            agentLoop.registerTool(listDefinition, listImplement);
-
-            const globDefinition = await defineGlobTool();
-            const globImplement = await createGlobImplement();
-            agentLoop.registerTool(globDefinition, globImplement);
-
-            const grepDefinition = await defineGrepTool();
-            const grepImplement = await createGrepImplement();
-            agentLoop.registerTool(grepDefinition, grepImplement);
-
-            const bashDefinition = await defineBashTool();
-            const bashImplement = await createBashImplement();
-            agentLoop.registerTool(bashDefinition, bashImplement);
+            agentLoop.registerTool(await ReadTool.create());
+            agentLoop.registerTool(await ListTool.create());
+            agentLoop.registerTool(await GlobTool.create());
+            agentLoop.registerTool(await GrepTool.create());
+            agentLoop.registerTool(await BashTool.create());
         },
     },
 ];
@@ -143,49 +107,19 @@ catch {
 }
 loop.setSystemPrompt(`${systemPromptBase.trim()}\nThe current working directory is: ${process.cwd()}`);
 
-const readDef = await defineReadTool();
-const readImpl = await createReadImplement();
-loop.registerTool(readDef, readImpl);
+loop.registerTool(await ReadTool.create());
+loop.registerTool(await WriteTool.create());
+loop.registerTool(await ListTool.create());
+loop.registerTool(await EditTool.create());
+loop.registerTool(await BashTool.create());
+loop.registerTool(await GrepTool.create());
+loop.registerTool(await GlobTool.create());
+loop.registerTool(await AgentTool.create(agentTypes));
 
-const writeDef = await defineWriteTool();
-const writeImpl = await createWriteImplement();
-loop.registerTool(writeDef, writeImpl);
+loop.registerTool(await TaskOutputTool.create());
 
-const listDef = await defineListTool();
-const listImpl = await createListImplement();
-loop.registerTool(listDef, listImpl);
-
-const editDef = await defineEditTool();
-const editImpl = await createEditImplement();
-loop.registerTool(editDef, editImpl);
-
-const bashDef = await defineBashTool();
-const bashImpl = await createBashImplement();
-loop.registerTool(bashDef, bashImpl);
-
-const grepDef = await defineGrepTool();
-const grepImpl = await createGrepImplement();
-loop.registerTool(grepDef, grepImpl);
-
-const globDef = await defineGlobTool();
-const globImpl = await createGlobImplement();
-loop.registerTool(globDef, globImpl);
-
-const agentDef = await defineAgentTool(agentTypes);
-const agentImpl = await createAgentImplement(agentTypes);
-loop.registerTool(agentDef, agentImpl);
-
-const taskOutputDef = await defineTaskOutputTool();
-const taskOutputImpl = await createTaskOutputImplement();
-loop.registerTool(taskOutputDef, taskOutputImpl);
-
-const taskStopDef = await defineTaskStopTool();
-const taskStopImpl = await createTaskStopImplement();
-loop.registerTool(taskStopDef, taskStopImpl);
-
-const todoWriteDef = await defineTodoWriteTool();
-const todoWriteImpl = await createTodoWriteImplement();
-loop.registerTool(todoWriteDef, todoWriteImpl);
+loop.registerTool(await TaskStopTool.create());
+loop.registerTool(await TodoWriteTool.create());
 
 loop.registerQueryContextProvider(new WorkspaceEnvProvider());
 loop.registerQueryContextProvider(new GitStatusProvider());

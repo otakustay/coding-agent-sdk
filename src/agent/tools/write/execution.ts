@@ -1,13 +1,22 @@
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
-import type {WriteToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
 import {stringifyError} from '../../../utils/error.js';
 
-export async function createWriteImplement(): Promise<ToolImplementation<WriteToolParameters>> {
-    return async (parameters): Promise<string> => {
-        const {file_path: filePath, content} = parameters;
+export interface WriteToolParameters {
+    file_path: string;
+    content: string;
+}
+
+export class WriteToolExecution {
+    private readonly parameters: WriteToolParameters;
+
+    constructor(parameters: WriteToolParameters) {
+        this.parameters = parameters;
+    }
+
+    async run(): Promise<string> {
+        const {file_path: filePath, content} = this.parameters;
 
         if (existsSync(filePath)) {
             const stat = await fs.stat(filePath);
@@ -30,5 +39,5 @@ export async function createWriteImplement(): Promise<ToolImplementation<WriteTo
         }
 
         return 'Write file success';
-    };
+    }
 }

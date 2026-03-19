@@ -1,10 +1,15 @@
-import type {TaskGetToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
+import type {ToolExecutionContext} from '../interface.js';
 
-export async function createTaskGetImplement(): Promise<ToolImplementation<TaskGetToolParameters>> {
-    return async (parameters, context): Promise<string> => {
-        const {task_id: taskId} = parameters;
-        const {tasks} = context;
+export interface TaskGetToolParameters {
+    task_id: string;
+}
+
+export class TaskGetToolExecution {
+    constructor(private readonly parameters: TaskGetToolParameters, private readonly context: ToolExecutionContext) {}
+
+    run(): Promise<string> {
+        const {task_id: taskId} = this.parameters;
+        const {tasks} = this.context;
 
         const task = tasks.get(taskId);
         if (!task) {
@@ -30,6 +35,6 @@ export async function createTaskGetImplement(): Promise<ToolImplementation<TaskG
             blockedBy,
             metadata,
         ];
-        return lines.filter(v => !!v).join('\n');
-    };
+        return Promise.resolve(lines.filter(v => !!v).join('\n'));
+    }
 }

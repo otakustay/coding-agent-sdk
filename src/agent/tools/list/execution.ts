@@ -3,14 +3,23 @@ import path from 'node:path';
 import {globby} from 'globby';
 import {directories as defaultIgnoreDirectories} from 'ignore-by-default';
 import {isErrorWithCode} from '../../../utils/error.js';
-import type {ListToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
 
-const MAX_ITEMS = 2000;
+export interface ListToolParameters {
+    target_directory: string;
+    ignore_globs?: string[];
+    depth?: number;
+}
 
-export async function createListImplement(): Promise<ToolImplementation<ListToolParameters>> {
-    return async (parameters): Promise<string> => {
-        const {target_directory: targetDirectory, ignore_globs: ignoreGlobs, depth} = parameters;
+export class ListToolExecution {
+    private static readonly MAX_ITEMS = 2000;
+    private readonly parameters: ListToolParameters;
+
+    constructor(parameters: ListToolParameters) {
+        this.parameters = parameters;
+    }
+
+    async run(): Promise<string> {
+        const {target_directory: targetDirectory, ignore_globs: ignoreGlobs, depth} = this.parameters;
 
         try {
             const stat = await fs.stat(targetDirectory);
@@ -48,8 +57,8 @@ export async function createListImplement(): Promise<ToolImplementation<ListTool
             return 'The directory is empty';
         }
 
-        const truncated = entries.length > MAX_ITEMS;
-        const visibleEntries = truncated ? entries.slice(0, MAX_ITEMS) : entries;
+        const truncated = entries.length > ListToolExecution.MAX_ITEMS;
+        const visibleEntries = truncated ? entries.slice(0, ListToolExecution.MAX_ITEMS) : entries;
 
         const dirName = path.basename(targetDirectory);
         const lines: string[] = [`${dirName}/`];
@@ -68,10 +77,10 @@ export async function createListImplement(): Promise<ToolImplementation<ListTool
             lines.push(
                 '',
                 '',
-                `total ${entries.length.toLocaleString()} files and directories.\n\nThe list tool supports up to ${MAX_ITEMS.toLocaleString()} files and directories. Results exceeding this limit have been truncated`
+                `total ${entries.length.toLocaleString()} files and directories.\n\nThe list tool supports up to ${ListToolExecution.MAX_ITEMS.toLocaleString()} files and directories. Results exceeding this limit have been truncated`
             );
         }
 
         return lines.join('\n');
-    };
+    }
 }

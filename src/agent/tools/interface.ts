@@ -64,4 +64,9 @@ export interface ToolDefinition {
     inputSchema: Record<string, unknown>;
 }
 
-export type ToolImplementation<T = unknown> = (parameters: T, context: ToolExecutionContext) => Promise<string>;
+export interface Tool<T = unknown> {
+    getName(): string;
+    getDescription(): string;
+    getInputSchema(): Record<string, unknown>;
+    execute(parameters: T, context: ToolExecutionContext): Promise<string>;
+}

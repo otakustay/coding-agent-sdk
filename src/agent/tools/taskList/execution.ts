@@ -1,16 +1,23 @@
 import {markdownTable} from 'markdown-table';
-import type {TaskListToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
+import type {ToolExecutionContext} from '../interface.js';
 import {sortByBlocker} from './sort.js';
 
-export async function createTaskListImplement(): Promise<ToolImplementation<TaskListToolParameters>> {
-    return async (parameters, context): Promise<string> => {
-        const {tasks} = context;
+export type TaskListToolParameters = Record<string, never>;
+
+export class TaskListToolExecution {
+    private readonly context: ToolExecutionContext;
+
+    constructor(context: ToolExecutionContext) {
+        this.context = context;
+    }
+
+    run(): Promise<string> {
+        const {tasks} = this.context;
 
         const allTasks = [...tasks.values()];
 
         if (allTasks.length === 0) {
-            return 'No tasks exist';
+            return Promise.resolve('No tasks exist');
         }
 
         const sortedTasks = sortByBlocker(allTasks);
@@ -23,6 +30,6 @@ export async function createTaskListImplement(): Promise<ToolImplementation<Task
             rows.push([task.id, task.subject, task.status, blockedBy]);
         }
 
-        return markdownTable(rows);
-    };
+        return Promise.resolve(markdownTable(rows));
+    }
 }

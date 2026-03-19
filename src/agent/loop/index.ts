@@ -16,32 +16,21 @@ import type {
 import {materializeTimeline, transformTimelineToInput} from './transform.js';
 import type {QueryContextProvider, QueryState} from '../context/index.js';
 import {UserQueryProvider} from '../context/index.js';
-import type {
-    ToolDefinition,
-    ToolImplementation,
-    ProcessRecord,
-    SubagentRecord,
-    TaskRecord,
-} from '../tools/interface.js';
+import type {Tool, ProcessRecord, SubagentRecord, TaskRecord} from '../tools/interface.js';
 import {stringifyError} from '../../utils/error.js';
 import {discard} from '../../utils/iterable.js';
 import {error} from './utils/prompt.js';
-
-interface RegisteredTool {
-    definition: ToolDefinition;
-    implement: ToolImplementation;
-}
 
 function isExecutableToolCall(item: AgentWorkItem): item is AgentWorkItemToolCallOutput {
     return item.type === 'output.toolCall' && item.status === 'completed';
 }
 
-function toToolDefinition({definition}: RegisteredTool): OpenResponsesRequestToolFunction {
+function toToolDefinition(tool: Tool<unknown>): OpenResponsesRequestToolFunction {
     return {
         type: 'function',
-        name: definition.name,
-        description: definition.description,
-        parameters: definition.inputSchema,
+        name: tool.getName(),
+        description: tool.getDescription(),
+        parameters: tool.getInputSchema(),
     };
 }
 
@@ -86,7 +75,7 @@ export class AgentLoop {
     private client: ModelClient;
     private model: string;
     private timeline: TimelineEntry[] = [];
-    private tools = new Map<string, RegisteredTool>();
+    private tools = new Map<string, Tool<unknown>>();
     private subagents = new Map<string, SubagentRecord>();
     private processes = new Map<string, ProcessRecord>();
     private tasks = new Map<string, TaskRecord>();
@@ -143,8 +132,8 @@ export class AgentLoop {
             : '';
     }
 
-    registerTool(definition: ToolDefinition, implement: ToolImplementation<any>): void {
-        this.tools.set(definition.name, {definition, implement});
+    registerTool(tool: Tool<unknown>): void {
+        this.tools.set(tool.getName(), tool);
     }
 
     registerQueryContextProvider(provider: QueryContextProvider): void {
@@ -387,8 +376,8 @@ export class AgentLoop {
     }
 
     private async executeToolCall(toolCall: AgentWorkItemToolCallOutput): Promise<AgentWorkItemToolResultInput> {
-        const registered = this.tools.get(toolCall.name);
-        if (!registered) {
+        const tool = this.tools.get(toolCall.name);
+        if (!tool) {
             return {
                 type: 'input.toolResult',
                 callId: toolCall.callId,
@@ -397,8 +386,8 @@ export class AgentLoop {
         }
         try {
             const rawParameters = JSON.parse(toolCall.arguments);
-            const parameters = z.fromJSONSchema(registered.definition.inputSchema).parse(rawParameters);
-            const content = await registered.implement(parameters, this.createToolCallContext());
+            const parameters = z.fromJSONSchema(tool.getInputSchema()).parse(rawParameters);
+            const content = await tool.execute(parameters, this.createToolCallContext());
             return {type: 'input.toolResult', callId: toolCall.callId, content};
         }
         catch (ex) {

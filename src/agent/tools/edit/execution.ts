@@ -1,16 +1,27 @@
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
-import type {EditToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
 
-export async function createEditImplement(): Promise<ToolImplementation<EditToolParameters>> {
-    return async (parameters): Promise<string> => {
+export interface EditToolParameters {
+    file_path: string;
+    old_string: string;
+    new_string: string;
+    replace_all?: boolean;
+}
+
+export class EditToolExecution {
+    private readonly parameters: EditToolParameters;
+
+    constructor(parameters: EditToolParameters) {
+        this.parameters = parameters;
+    }
+
+    async run(): Promise<string> {
         const {
             file_path: filePath,
             old_string: oldString,
             new_string: newString,
             replace_all: replaceAll,
-        } = parameters;
+        } = this.parameters;
 
         if (oldString === newString) {
             throw new Error('oldString and newString must be different.');
@@ -42,11 +53,12 @@ export async function createEditImplement(): Promise<ToolImplementation<EditTool
             throw new Error(segments.join(' '));
         }
 
+        // TODO： Should throw if multiple occurrences when `replaceAll` is `false`
         // It is ensured that only one occurrence will be replaced if `replaceAll` is `false`
         const newContent = content.replaceAll(oldString, newString);
 
         await fs.writeFile(filePath, newContent, 'utf8');
 
         return 'Edit applied successfully.';
-    };
+    }
 }

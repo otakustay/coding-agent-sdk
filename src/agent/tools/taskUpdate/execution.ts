@@ -1,8 +1,22 @@
-import type {TaskUpdateToolParameters} from './definition.js';
-import type {ToolImplementation} from '../interface.js';
+import type {ToolExecutionContext} from '../interface.js';
 
-export async function createTaskUpdateImplement(): Promise<ToolImplementation<TaskUpdateToolParameters>> {
-    return async (parameters, context): Promise<string> => {
+export interface TaskUpdateToolParameters {
+    task_id: string;
+    subject?: string;
+    description?: string;
+    status?: 'pending' | 'in_progress' | 'completed' | 'deleted';
+    add_blocks?: string[];
+    add_blocked_by?: string[];
+    metadata?: Record<string, unknown | null>;
+}
+
+export class TaskUpdateToolExecution {
+    constructor(
+        private readonly parameters: TaskUpdateToolParameters,
+        private readonly context: ToolExecutionContext,
+    ) {}
+
+    run(): Promise<string> {
         const {
             task_id: taskId,
             subject,
@@ -11,8 +25,8 @@ export async function createTaskUpdateImplement(): Promise<ToolImplementation<Ta
             add_blocks: addBlocks,
             add_blocked_by: addBlockedBy,
             metadata,
-        } = parameters;
-        const {tasks} = context;
+        } = this.parameters;
+        const {tasks} = this.context;
 
         const task = tasks.get(taskId);
         if (!task) {
@@ -25,7 +39,7 @@ export async function createTaskUpdateImplement(): Promise<ToolImplementation<Ta
 
         if (status === 'deleted') {
             tasks.delete(taskId);
-            return `Task ${taskId} has been deleted`;
+            return Promise.resolve(`Task ${taskId} has been deleted`);
         }
 
         if (subject !== undefined) {
@@ -56,6 +70,6 @@ export async function createTaskUpdateImplement(): Promise<ToolImplementation<Ta
             }
         }
 
-        return `Task ${taskId} has been updated successfully`;
-    };
+        return Promise.resolve(`Task ${taskId} has been updated successfully`);
+    }
 }
