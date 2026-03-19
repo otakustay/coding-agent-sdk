@@ -27,6 +27,7 @@ export async function createReadImplement(): Promise<ToolImplementation<ReadTool
         const output = slicedLines.map(formatLine);
 
         // Add truncation notice if needed
+        // limit: 0 is treated as "no limit" (same as omitting the parameter)
         if (lines.length > MAX_LINES && !parameters.limit) {
             output.push(
                 '',

@@ -1,11 +1,11 @@
 import type {ChatCompletionMessageParam, ChatCompletionTool} from 'openai/resources/chat/completions';
 import type {
-    OpenResponsesInput,
     OpenResponsesInputMessageItem,
     OpenResponsesRequestToolFunction,
     ResponsesOutputMessage,
     ResponsesOutputItemFunctionCall,
 } from '@openrouter/sdk/models';
+import type {OpenResponsesInputArray} from '../interface.js';
 
 interface AssistantGroup {
     content: string;
@@ -61,11 +61,7 @@ function flushAssistantGroup(group: AssistantGroup, messages: ChatCompletionMess
     messages.push(msg);
 }
 
-export function convertInputToMessages(input: OpenResponsesInput): ChatCompletionMessageParam[] {
-    if (typeof input === 'string') {
-        return [{role: 'user', content: input}];
-    }
-
+export function convertInputToMessages(input: OpenResponsesInputArray): ChatCompletionMessageParam[] {
     const messages: ChatCompletionMessageParam[] = [];
     const state: IterationState = {pendingGroup: null};
 

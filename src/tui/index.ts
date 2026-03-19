@@ -36,7 +36,7 @@ import {
     WorkspaceEnvProvider,
     GitStatusProvider,
 } from '../agent/index.js';
-import type {AgentConfig, SkillConfig} from '../agent/index.js';
+import type {AgentConfig, SkillConfig, ModelProvider} from '../agent/index.js';
 import {renderInteractiveLoop} from './render.js';
 
 function parseSkillFile(fileContent: string, directory: string): SkillConfig | null {
@@ -163,7 +163,7 @@ const argv = await yargs(hideBin(process.argv))
     .parse();
 
 const clientOptions = {
-    provider: process.env.MODEL_PROVIDER,
+    provider: process.env.MODEL_PROVIDER as ModelProvider | undefined,
     apiKey: process.env.MODEL_API_KEY,
     baseURL: process.env.MODEL_API_ENDPOINT,
 };

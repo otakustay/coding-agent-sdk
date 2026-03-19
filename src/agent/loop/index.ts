@@ -125,7 +125,7 @@ export class AgentLoop {
         if (this.running) {
             return;
         }
-        void discard(this.submitUserQuery(notification));
+        void discard(this.submitUserQuery(notification), {silentError: true});
     }
 
     abort(): Promise<void> {
@@ -209,9 +209,7 @@ export class AgentLoop {
         const toolDefinitions = this.buildToolDefinitions();
         const input = transformTimelineToInput(this.timeline);
 
-        const hasSystem = Array.isArray(input)
-            ? input.some(v => typeof v === 'object' && v.type === 'message' && v.role === 'system')
-            : false;
+        const hasSystem = input.some(v => typeof v === 'object' && v.type === 'message' && v.role === 'system');
         if (!hasSystem) {
             throw new Error('No system prompt set. Call setSystemPrompt() before submitting queries.');
         }

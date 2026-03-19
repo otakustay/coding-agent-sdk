@@ -8,7 +8,7 @@ export {OpenAIModelClient} from './client/openai/index.js';
 export {AnthropicModelClient} from './client/anthropic/index.js';
 export type {AnthropicModelClientOptions} from './client/anthropic/index.js';
 export {createClient} from './client/index.js';
-export type {CreateClientOptions} from './client/index.js';
+export type {ModelProvider, CreateClientOptions} from './client/index.js';
 export {toItemUpdateStream} from './stream.js';
 export type {AgentWorkItem, AgentWorkItemUsage, TokenUsage} from './loop/interface.js';
 export type {ToolExecutionContext, ToolDefinition, ToolImplementation} from './tools/interface.js';

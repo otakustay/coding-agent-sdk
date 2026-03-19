@@ -68,7 +68,7 @@ export async function createListImplement(): Promise<ToolImplementation<ListTool
             lines.push(
                 '',
                 '',
-                `total ${entries.length.toLocaleString()} files and directories.\n\nThe list tool supports up to 2,000 files and directories. Results exceeding this limit have been truncated`
+                `total ${entries.length.toLocaleString()} files and directories.\n\nThe list tool supports up to ${MAX_ITEMS.toLocaleString()} files and directories. Results exceeding this limit have been truncated`
             );
         }
 

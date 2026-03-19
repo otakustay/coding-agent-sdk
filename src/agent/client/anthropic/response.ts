@@ -1,10 +1,19 @@
+import crypto from 'node:crypto';
 import type {RawMessageStreamEvent, MessageDeltaUsage} from '@anthropic-ai/sdk/resources/messages/messages';
 import type {OpenResponsesStreamEvent, OpenResponsesNonStreamingResponse} from '@openrouter/sdk/models';
-import {createIdGenerator, createIncrementCounter} from '../../../utils/id.js';
+import {createIncrementCounter} from '../../../utils/id.js';
 
-const nextId = createIdGenerator();
-const nextOutputIndex = createIncrementCounter();
-const seq = createIncrementCounter();
+const prefixMap = {
+    message: 'msg_tmp_',
+    function_call: 'fc_tmp_',
+    reasoning: 'rs_tmp_',
+} as const;
+
+function randomItemId(type: keyof typeof prefixMap): string {
+    const n = crypto.randomBytes(8).readBigUInt64BE();
+    const suffix = n.toString(36).slice(0, 11).padStart(11, '0');
+    return prefixMap[type] + suffix;
+}
 
 interface TrackedTextItem {
     kind: 'message';
@@ -123,6 +132,8 @@ export async function* convertAnthropicStreamEvents(
     stream: AsyncIterable<RawMessageStreamEvent>,
 ): AsyncGenerator<OpenResponsesStreamEvent, void, undefined> {
     const state: StreamState = {lastDeltaUsage: null};
+    const nextOutputIndex = createIncrementCounter();
+    const seq = createIncrementCounter();
 
     // Track items by content block index
     const trackedItems = new Map<number, TrackedItem>();
@@ -140,7 +151,7 @@ export async function* convertAnthropicStreamEvents(
             if (block.type === 'text') {
                 const item: TrackedTextItem = {
                     kind: 'message',
-                    id: nextId(),
+                    id: randomItemId('message'),
                     outputIndex: nextOutputIndex(),
                     content: '',
                 };
@@ -150,7 +161,7 @@ export async function* convertAnthropicStreamEvents(
             else if (block.type === 'tool_use') {
                 const item: TrackedFunctionCallItem = {
                     kind: 'function_call',
-                    id: nextId(),
+                    id: randomItemId('function_call'),
                     callId: block.id,
                     outputIndex: nextOutputIndex(),
                     name: block.name,
@@ -162,7 +173,7 @@ export async function* convertAnthropicStreamEvents(
             else if (block.type === 'thinking') {
                 const item: TrackedReasoningItem = {
                     kind: 'reasoning',
-                    id: nextId(),
+                    id: randomItemId('reasoning'),
                     outputIndex: nextOutputIndex(),
                     content: '',
                 };

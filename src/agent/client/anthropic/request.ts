@@ -1,11 +1,11 @@
 import type {MessageParam, Tool, ContentBlockParam} from '@anthropic-ai/sdk/resources/messages/messages';
 import type {
-    OpenResponsesInput,
     OpenResponsesInputMessageItem,
     OpenResponsesRequestToolFunction,
     ResponsesOutputMessage,
     ResponsesOutputItemFunctionCall,
 } from '@openrouter/sdk/models';
+import type {OpenResponsesInputArray} from '../interface.js';
 import {parseJsonSafe} from '../../../utils/string.js';
 
 interface AssistantGroup {
@@ -78,11 +78,7 @@ export interface AnthropicConvertedInput {
     messages: MessageParam[];
 }
 
-export function convertInputToAnthropicParams(input: OpenResponsesInput): AnthropicConvertedInput {
-    if (typeof input === 'string') {
-        return {system: undefined, messages: [{role: 'user', content: input}]};
-    }
-
+export function convertInputToAnthropicParams(input: OpenResponsesInputArray): AnthropicConvertedInput {
     const state: IterationState = {
         system: undefined,
         messages: [],

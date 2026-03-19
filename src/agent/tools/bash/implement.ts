@@ -111,7 +111,7 @@ export async function createBashImplement(): Promise<ToolImplementation<BashTool
             {
                 maxCharactersPerLine: MAX_LINE_LENGTH,
                 maxLines: MAX_OUTPUT_LINES,
-                from: 'tail',
+                keep: 'tail',
                 onTruncate: truncated =>
                     `(Output truncated, showing last ${truncated.split('\n').length} lines.)\n` + truncated,
             }

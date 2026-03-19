@@ -1,7 +1,7 @@
 interface TruncateTextOptions {
     maxLines?: number;
     maxCharactersPerLine?: number;
-    from?: 'head' | 'tail';
+    keep?: 'head' | 'tail';
     onTruncate?: (truncated: string) => string;
 }
 
@@ -10,7 +10,7 @@ export function truncateLine(line: string, maxCharacters: number): string {
 }
 
 export function truncateText(text: string, options: TruncateTextOptions = {}): string {
-    const {maxLines, maxCharactersPerLine, from = 'head', onTruncate} = options;
+    const {maxLines, maxCharactersPerLine, keep = 'head', onTruncate} = options;
 
     const lines = text.split('\n');
     const perLineTruncated = typeof maxCharactersPerLine === 'number'
@@ -18,7 +18,7 @@ export function truncateText(text: string, options: TruncateTextOptions = {}): s
         : lines;
 
     if (maxLines !== undefined && perLineTruncated.length > maxLines) {
-        const truncated = from === 'tail'
+        const truncated = keep === 'tail'
             ? perLineTruncated.slice(-maxLines).join('\n')
             : perLineTruncated.slice(0, maxLines).join('\n');
         return onTruncate ? onTruncate(truncated) : truncated;

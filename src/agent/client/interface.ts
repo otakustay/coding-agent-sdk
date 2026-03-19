@@ -4,9 +4,11 @@ import type {
     OpenResponsesStreamEvent,
 } from '@openrouter/sdk/models';
 
+export type OpenResponsesInputArray = Exclude<OpenResponsesInput, string>;
+
 export interface ModelClientRequest {
     model: string;
-    input: OpenResponsesInput;
+    input: OpenResponsesInputArray;
     tools: OpenResponsesRequestToolFunction[];
 }
 

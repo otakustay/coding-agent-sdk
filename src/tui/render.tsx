@@ -45,7 +45,6 @@ function getItemKey(item: AgentWorkItem, i: number): string {
 }
 
 function AgentOutput({items}: {items: AgentWorkItem[]}) {
-    const visible = items.filter(item => !HIDDEN_TYPES.has(item.type));
     const renderItem = (item: AgentWorkItem, i: number) => (
         <Fragment key={getItemKey(item, i)}>
             {i > 0 && <Text dimColor>{SEPARATOR}</Text>}
@@ -55,7 +54,7 @@ function AgentOutput({items}: {items: AgentWorkItem[]}) {
 
     return (
         <Box flexDirection="column">
-            {visible.map(renderItem)}
+            {items.map(renderItem)}
         </Box>
     );
 }
@@ -93,7 +92,7 @@ function App({agentLoop}: {agentLoop: AgentLoop}) {
 
     return (
         <Box flexDirection="column">
-            <AgentOutput items={items} />
+            <AgentOutput items={visible} />
             {usageItem && usageItem.type === 'usage' && <UsageBar usage={usageItem.usage} />}
             {!isRunning && (
                 <Box flexDirection="column">

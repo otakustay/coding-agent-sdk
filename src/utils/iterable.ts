@@ -1,9 +1,17 @@
-export async function discard(input: AsyncIterable<unknown>) {
-    const iterator = input[Symbol.asyncIterator]();
-    while (true) {
-        const {done} = await iterator.next();
-        if (done) {
-            break;
+interface DiscardOptions {
+    silentError?: boolean;
+}
+
+export async function discard(input: AsyncIterable<unknown>, options?: DiscardOptions) {
+    try {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const discard of input) {
+            // drain
+        }
+    }
+    catch (ex) {
+        if (!options?.silentError) {
+            throw ex;
         }
     }
 }

@@ -1,10 +1,18 @@
+import crypto from 'node:crypto';
 import type {ChatCompletionChunk} from 'openai/resources/chat/completions';
 import type {OpenResponsesStreamEvent, OpenResponsesNonStreamingResponse} from '@openrouter/sdk/models';
-import {createIdGenerator, createIncrementCounter} from '../../../utils/id.js';
+import {createIncrementCounter} from '../../../utils/id.js';
 
-const nextId = createIdGenerator();
-const seq = createIncrementCounter();
-const nextOutputIndex = createIncrementCounter();
+const prefixMap = {
+    message: 'msg_tmp_',
+    function_call: 'fc_tmp_',
+} as const;
+
+function randomItemId(type: keyof typeof prefixMap): string {
+    const n = crypto.randomBytes(8).readBigUInt64BE();
+    const suffix = n.toString(36).slice(0, 11).padStart(11, '0');
+    return prefixMap[type] + suffix;
+}
 
 interface TrackedMessageItem {
     kind: 'message';
@@ -103,6 +111,8 @@ export async function* convertStreamEvents(
     stream: AsyncIterable<ChatCompletionChunk>,
 ): AsyncGenerator<OpenResponsesStreamEvent, void, undefined> {
     const state: StreamState = {lastUsage: null, messageItem: null};
+    const nextOutputIndex = createIncrementCounter();
+    const seq = createIncrementCounter();
 
     // Track items: message item and per-index tool call items
     const toolCallItems = new Map<number, TrackedFunctionCallItem>();
@@ -124,7 +134,7 @@ export async function* convertStreamEvents(
             if (!state.messageItem) {
                 state.messageItem = {
                     kind: 'message',
-                    id: nextId(),
+                    id: randomItemId('message'),
                     outputIndex: nextOutputIndex(),
                     content: '',
                 };
@@ -147,7 +157,7 @@ export async function* convertStreamEvents(
             if (!state.messageItem) {
                 state.messageItem = {
                     kind: 'message',
-                    id: nextId(),
+                    id: randomItemId('message'),
                     outputIndex: nextOutputIndex(),
                     content: '',
                 };
@@ -168,7 +178,7 @@ export async function* convertStreamEvents(
             for (const tc of delta.tool_calls) {
                 const [tracked, isNew] = getOrCreate(toolCallItems, tc.index, () => ({
                     kind: 'function_call' as const,
-                    id: nextId(),
+                    id: randomItemId('function_call'),
                     callId: tc.id ?? `call_${tc.index}`,
                     outputIndex: nextOutputIndex(),
                     name: tc.function?.name ?? '',

@@ -17,6 +17,7 @@ Run these commands **in parallel**:
 
 - npm run lint
 - npm run type-check
+- npm run test
 
 ### When to Run
 

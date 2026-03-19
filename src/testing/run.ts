@@ -31,8 +31,19 @@ import {
     WorkspaceEnvProvider,
     GitStatusProvider,
 } from '../agent/index.js';
-import type {AgentWorkItem, AgentConfig, AgentWorkItemUsage} from '../agent/index.js';
+import type {AgentWorkItem, AgentConfig, AgentWorkItemUsage, ModelProvider} from '../agent/index.js';
 import {fromScriptDirectory} from '../utils/path.js';
+
+function ensureModelProvider(value: string | undefined): ModelProvider | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (value !== 'OpenAI' && value !== 'Anthropic' && value !== 'OpenRouter') {
+        console.error(`Error: MODEL_PROVIDER must be one of: OpenAI, Anthropic, OpenRouter (got "${value}")`);
+        process.exit(1);
+    }
+    return value;
+}
 
 const agentTypes: AgentConfig[] = [
     {
@@ -109,15 +120,27 @@ const argv = await yargs(hideBin(process.argv))
     .option('model', {type: 'string', demandOption: true, description: 'Model name to use'})
     .parse();
 
+if (!process.env.MODEL_API_KEY) {
+    console.error('Error: MODEL_API_KEY environment variable is required');
+    process.exit(1);
+}
+
 const clientOptions = {
-    provider: process.env.MODEL_PROVIDER,
+    provider: ensureModelProvider(process.env.MODEL_PROVIDER),
     apiKey: process.env.MODEL_API_KEY,
     baseURL: process.env.MODEL_API_ENDPOINT,
 };
 const client = createClient(clientOptions);
 const loop = new AgentLoop(client, argv.model);
 
-const systemPromptBase = await fs.readFile(fromScriptDirectory(import.meta.url, 'system.txt'), 'utf8');
+let systemPromptBase: string;
+try {
+    systemPromptBase = await fs.readFile(fromScriptDirectory(import.meta.url, 'system.txt'), 'utf8');
+}
+catch {
+    console.error('Error: Failed to read system.txt - ensure the file exists at the expected path next to run.ts');
+    process.exit(1);
+}
 loop.setSystemPrompt(`${systemPromptBase.trim()}\nThe current working directory is: ${process.cwd()}`);
 
 const readDef = await defineReadTool();
@@ -168,14 +191,24 @@ loop.registerQueryContextProvider(new WorkspaceEnvProvider());
 loop.registerQueryContextProvider(new GitStatusProvider());
 loop.registerQueryContextProvider(new AgentsMdProvider());
 
-const stream = loop.submitUserQuery(argv.query);
-
 interface WorkingState {
     items: AgentWorkItem[];
 }
+
+const stream = loop.submitUserQuery(argv.query);
+
 const state: WorkingState = {items: []};
-for await (const update of toItemUpdateStream(stream)) {
-    state.items = update(state.items);
+try {
+    for await (const update of toItemUpdateStream(stream)) {
+        state.items = update(state.items);
+    }
+}
+catch (ex) {
+    console.error('Error: Agent loop failed:', ex instanceof Error ? ex.message : ex);
+    if (state.items.length > 0) {
+        console.log(JSON.stringify(state.items, null, 2));
+    }
+    process.exit(1);
 }
 
 console.log(JSON.stringify(state.items, null, 2));

@@ -1,4 +1,4 @@
-import type {OpenResponsesInput} from '@openrouter/sdk/models';
+import type {OpenResponsesInputArray} from '../client/interface.js';
 import type {AgentWorkItem, TimelineEntry} from './interface.js';
 import {TimelineCoalescer} from './coalescer.js';
 import type {CoalescedItem} from './coalescer.js';
@@ -106,7 +106,7 @@ function flushPendingUnmatched(result: CoalescedItem[], callIds: string[]): void
  *   - error items become user messages describing the error
  *   - tool calls with no corresponding result get a synthetic error result
  */
-export function transformCoalescedToInput(coalesced: CoalescedItem[]): OpenResponsesInput {
+export function transformCoalescedToInput(coalesced: CoalescedItem[]): OpenResponsesInputArray {
     const existingResultCallIds = new Set<string>();
     for (const item of coalesced) {
         if (item.type === 'function_call_output') {
@@ -149,7 +149,7 @@ export function transformCoalescedToInput(coalesced: CoalescedItem[]): OpenRespo
         flushPendingUnmatched(result, pendingUnmatchedCallIds);
     }
 
-    return result as OpenResponsesInput;
+    return result as OpenResponsesInputArray;
 }
 
 /**
@@ -180,6 +180,6 @@ export function materializeTimeline(timeline: TimelineEntry[]): AgentWorkItem[] 
  * Convert append-only timeline into canonical OpenRouter input items.
  * Applies error recovery corrections via transformCoalescedToInput.
  */
-export function transformTimelineToInput(timeline: TimelineEntry[]): OpenResponsesInput {
+export function transformTimelineToInput(timeline: TimelineEntry[]): OpenResponsesInputArray {
     return transformCoalescedToInput(coalesceTimeline(timeline));
 }
